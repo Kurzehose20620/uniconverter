@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "uniconv"
+name = "uniconverter"
 dynamic = ["version"]
 description = "Local file converter for macOS: images, PDF, Office, Markdown, audio and video. Nothing leaves your machine."
 readme = "README.md"
@@ -40,14 +40,14 @@ pdf2docx = ["pdf2docx"]
 dev = ["pytest", "ruff"]
 
 [project.scripts]
-uniconv = "uniconv.cli:main"
-uniconv-app = "uniconv.app:main"
+uniconverter = "uniconverter.cli:main"
+uniconverter-app = "uniconverter.app:main"
 
 [tool.hatch.version]
-path = "src/uniconv/__init__.py"
+path = "src/uniconverter/__init__.py"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/uniconv"]
+packages = ["src/uniconverter"]
 
 [tool.ruff]
 line-length = 100

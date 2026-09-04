@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Uniconv</title>
+<title>Uniconverter</title>
 <style>
   :root {
     --bg: #f2f3f7; --card: #ffffff; --text: #1a1c22; --muted: #6b7080;
@@ -91,7 +91,7 @@
 <body>
 <main>
   <header>
-    <h1>Uniconv</h1>
+    <h1>Uniconverter</h1>
     <span class="badge">100&nbsp;% lokal – nichts wird hochgeladen</span>
   </header>
 
@@ -144,7 +144,7 @@
     <ul id="results"></ul>
   </div>
 
-  <footer>läuft nur auf deinem Mac (127.0.0.1) · Terminal-Variante: <code>uniconv</code></footer>
+  <footer>läuft nur auf deinem Mac (127.0.0.1) · Terminal-Variante: <code>uniconverter</code></footer>
 </main>
 
 <script>
@@ -228,7 +228,7 @@ async function refreshTargets() {
     const r = await fetch('/targets?exts=' + encodeURIComponent(exts.join(',')));
     data = await r.json();
   } catch {
-    statusEl.textContent = 'Keine Verbindung zur App – bitte Uniconv neu öffnen.';
+    statusEl.textContent = 'Keine Verbindung zur App – bitte Uniconverter neu öffnen.';
     return;
   }
   const prev = targetSel.value;
@@ -295,7 +295,7 @@ go.addEventListener('click', async () => {
     renderResults(data);
     statusEl.textContent = '';
   } catch (e) {
-    statusEl.textContent = '✗ ' + (e.message || 'Keine Verbindung – bitte Uniconv neu öffnen.');
+    statusEl.textContent = '✗ ' + (e.message || 'Keine Verbindung – bitte Uniconverter neu öffnen.');
   }
   go.disabled = false;
 });

@@ -1,4 +1,4 @@
-"""uniconv – universeller lokaler Datei-Konverter für macOS.
+"""uniconverter – universeller lokaler Datei-Konverter für macOS.
 
 Alles läuft zu 100 % lokal, keine Datei verlässt den Rechner.
 Nutzt vorhandene macOS-Bordmittel (sips, textutil, afconvert), LibreOffice,

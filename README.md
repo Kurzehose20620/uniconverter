@@ -1,17 +1,17 @@
-# uniconv – universeller lokaler Datei-Konverter
+# uniconverter – universeller lokaler Datei-Konverter
 
 Konvertiert Bilder, Dokumente, PDFs, Audio und Video **komplett lokal** auf
 deinem Mac. Keine Datei verlässt den Rechner, kein Upload, keine Cloud.
 
 ## Die App
 
-**Uniconv.app** (in `~/Applications`, per Spotlight „Uniconv" suchbar):
+**Uniconverter.app** (in `~/Applications`, per Spotlight „Uniconverter" suchbar):
 Dateien ins Fenster ziehen, Zielformat auswählen, fertig. Ergebnisse landen
 in Downloads oder auf dem Schreibtisch („Zeigen" öffnet sie im Finder).
 Bei mehreren Dateien kann alles zu **einer** PDF zusammengefügt werden.
 
 Die App startet einen Mini-Server, der nur auf 127.0.0.1 lauscht – auch hier
-verlässt nichts den Rechner. Start alternativ im Terminal: `uniconv-app`.
+verlässt nichts den Rechner. Start alternativ im Terminal: `uniconverter-app`.
 
 ## Installation
 
@@ -19,35 +19,35 @@ Voraussetzungen: macOS und [pipx](https://pipx.pypa.io)
 (`brew install pipx && pipx ensurepath`).
 
 ```bash
-git clone <dieses Repo> uniconv && cd uniconv
-./install.sh              # CLI per pipx + Uniconv.app in ~/Applications
+git clone <dieses Repo> uniconverter && cd uniconverter
+./install.sh              # CLI per pipx + Uniconverter.app in ~/Applications
 ```
 
 Nur das CLI, ohne App-Bundle: `pipx install .` – danach gibt es die Befehle
-`uniconv` und `uniconv-app`. Zum Entwickeln `./install.sh --editable`
+`uniconverter` und `uniconverter-app`. Zum Entwickeln `./install.sh --editable`
 (Codeänderungen sind sofort wirksam).
 
 ## Benutzung im Terminal
 
 ```bash
-uniconv foto.heic foto.jpg              # einzelne Datei
-uniconv *.heic -t jpg                   # Stapel: alle HEIC → JPG
-uniconv *.png -t webp -o ./web/         # Stapel mit Zielordner
-uniconv bericht.docx bericht.pdf        # Word → PDF
-uniconv bericht.docx bericht.md         # Word → Markdown
-uniconv skript.md skript.pdf            # Markdown → PDF (hübsch gesetzt)
-uniconv paper.pdf paper.md              # PDF → Markdown
-uniconv paper.pdf -t png --dpi 200      # PDF → ein PNG pro Seite
-uniconv scan1.png scan2.png doc.pdf     # mehrere Dateien → EINE PDF
-uniconv scan.png kapitel.docx notiz.md alles.pdf   # Merge quer durch Formate
+uniconverter foto.heic foto.jpg              # einzelne Datei
+uniconverter *.heic -t jpg                   # Stapel: alle HEIC → JPG
+uniconverter *.png -t webp -o ./web/         # Stapel mit Zielordner
+uniconverter bericht.docx bericht.pdf        # Word → PDF
+uniconverter bericht.docx bericht.md         # Word → Markdown
+uniconverter skript.md skript.pdf            # Markdown → PDF (hübsch gesetzt)
+uniconverter paper.pdf paper.md              # PDF → Markdown
+uniconverter paper.pdf -t png --dpi 200      # PDF → ein PNG pro Seite
+uniconverter scan1.png scan2.png doc.pdf     # mehrere Dateien → EINE PDF
+uniconverter scan.png kapitel.docx notiz.md alles.pdf   # Merge quer durch Formate
 ```
 
 Nützliche Befehle und Optionen:
 
 | | |
 |---|---|
-| `uniconv doctor` | zeigt, welche Konverter verfügbar sind |
-| `uniconv formats` | alle unterstützten Konvertierungswege |
+| `uniconverter doctor` | zeigt, welche Konverter verfügbar sind |
+| `uniconverter formats` | alle unterstützten Konvertierungswege |
 | `-q 85` | JPEG/WebP-Qualität (Standard 90) |
 | `--dpi 200` | Auflösung bei PDF → Bild (Standard 150) |
 | `--extract-images` | bei PDF → md auch die Bilder herausziehen |
@@ -73,19 +73,19 @@ Alles funktioniert bereits – diese Installationen verbessern einzelne Wege:
 brew install pandoc typst    # beste Qualität für md → docx/pdf (Tabellen!)
 brew install ffmpeg          # Audio (mp3!) und Video
 brew install imagemagick     # exotische Bildformate
-pipx inject uniconv pdf2docx    # PDF → Word
+pipx inject uniconverter pdf2docx    # PDF → Word
 ```
 
 ## Aufbau
 
-- `src/uniconv/cli.py` – Kommandozeile (`uniconv`)
-- `src/uniconv/app.py` + `app.html` – Drag-&-Drop-App (`uniconv-app`),
+- `src/uniconverter/cli.py` – Kommandozeile (`uniconverter`)
+- `src/uniconverter/app.py` + `app.html` – Drag-&-Drop-App (`uniconverter-app`),
   lokaler Server auf 127.0.0.1
-- `src/uniconv/router.py` – wählt anhand von Quell- und Zielendung die Engine
-- `src/uniconv/engines/` – `images`, `pdf`, `office`, `text`, `media`,
+- `src/uniconverter/router.py` – wählt anhand von Quell- und Zielendung die Engine
+- `src/uniconverter/engines/` – `images`, `pdf`, `office`, `text`, `media`,
   dazu `tools` (Erkennung externer Programme)
-- `install.sh` – pipx-Installation plus Uniconv.app; erneut ausführen, wenn
-  der `uniconv`-Befehl fehlt
+- `install.sh` – pipx-Installation plus Uniconverter.app; erneut ausführen, wenn
+  der `uniconverter`-Befehl fehlt
 
 Genutzte Engines (Priorität je nach Verfügbarkeit): Pillow/PyMuPDF,
 macOS-Bordmittel (`sips`, `textutil`, `afconvert`), LibreOffice headless,

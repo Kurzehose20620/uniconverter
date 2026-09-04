@@ -28,7 +28,7 @@ def pdf_to_images(src: Path, dst: Path, opts):
         elif de == "png":
             pix.save(str(out))
         else:
-            tmp = out.with_suffix(".uniconv-tmp.png")
+            tmp = out.with_suffix(".uniconverter-tmp.png")
             pix.save(str(tmp))
             img_to_img(tmp, out, opts)
             tmp.unlink()

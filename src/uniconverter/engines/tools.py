@@ -94,5 +94,5 @@ def need(condition, was, install_hint):
 
 
 def pip_hint(pkg):
-    """Installationshinweis für ein fehlendes Python-Paket (uniconv läuft im pipx-venv)."""
-    return f"pipx inject uniconv {pkg}"
+    """Installationshinweis für ein fehlendes Python-Paket (uniconverter läuft im pipx-venv)."""
+    return f"pipx inject uniconverter {pkg}"

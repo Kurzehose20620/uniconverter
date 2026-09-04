@@ -1,11 +1,11 @@
-"""uniconv App – lokale Drag-&-Drop-Oberfläche für uniconv.
+"""uniconverter App – lokale Drag-&-Drop-Oberfläche für uniconverter.
 
 Kleiner Webserver, der nur auf 127.0.0.1 lauscht. Dateien werden per
 Drag & Drop an die Seite übergeben, konvertiert und in Downloads bzw. auf
 dem Schreibtisch abgelegt. Nichts verlässt den Rechner.
 
-`uniconv-app` sucht einen laufenden Server (oder startet einen im
-Hintergrund) und öffnet das App-Fenster. `uniconv-app --serve` startet
+`uniconverter-app` sucht einen laufenden Server (oder startet einen im
+Hintergrund) und öffnet das App-Fenster. `uniconverter-app --serve` startet
 den Server im Vordergrund.
 """
 
@@ -138,7 +138,7 @@ class Handler(BaseHTTPRequestHandler):
         if url.path == "/":
             self._send(200, HTML_FILE.read_bytes(), "text/html; charset=utf-8")
         elif url.path == "/ping":
-            self._send(200, {"app": "uniconv", "version": APP_VERSION})
+            self._send(200, {"app": "uniconverter", "version": APP_VERSION})
         elif url.path == "/targets":
             qs = urllib.parse.parse_qs(url.query)
             exts = [e.lower().lstrip(".") for e in
@@ -252,8 +252,8 @@ def serve():
             continue
     else:
         sys.exit("Kein freier Port gefunden.")
-    UPLOAD_DIR = Path(tempfile.mkdtemp(prefix="uniconv-app-"))
-    print(f"uniconv App läuft: http://127.0.0.1:{server.server_address[1]}")
+    UPLOAD_DIR = Path(tempfile.mkdtemp(prefix="uniconverter-app-"))
+    print(f"uniconverter App läuft: http://127.0.0.1:{server.server_address[1]}")
     try:
         server.serve_forever()
     except KeyboardInterrupt:
@@ -284,7 +284,7 @@ def find_server():
     """Port eines laufenden Servers dieser Version; veraltete Server werden beendet."""
     for port in PORT_RANGE:
         info = _ping(port)
-        if not info or info.get("app") != "uniconv":
+        if not info or info.get("app") != "uniconverter":
             continue
         if info.get("version") == APP_VERSION:
             return port
@@ -297,7 +297,7 @@ def ensure_server():
     port = find_server()
     if port:
         return port
-    subprocess.Popen([sys.executable, "-m", "uniconv.app", "--serve"],
+    subprocess.Popen([sys.executable, "-m", "uniconverter.app", "--serve"],
                      stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
                      stderr=subprocess.DEVNULL, start_new_session=True)
     for _ in range(40):
@@ -317,8 +317,8 @@ def open_window(url):
 
 def main(argv=None):
     p = argparse.ArgumentParser(
-        prog="uniconv-app",
-        description="Startet die uniconv App (lokaler Server auf 127.0.0.1 + App-Fenster).")
+        prog="uniconverter-app",
+        description="Startet die uniconverter App (lokaler Server auf 127.0.0.1 + App-Fenster).")
     p.add_argument("--serve", action="store_true",
                    help="nur den Server im Vordergrund starten, kein Fenster öffnen")
     args = p.parse_args(argv)
@@ -326,7 +326,7 @@ def main(argv=None):
         return serve()
     port = ensure_server()
     if port is None:
-        sys.exit("uniconv App konnte nicht gestartet werden.")
+        sys.exit("uniconverter App konnte nicht gestartet werden.")
     open_window(f"http://127.0.0.1:{port}")
 
 

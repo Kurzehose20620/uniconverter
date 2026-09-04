@@ -107,7 +107,7 @@ Audio    wav m4a aiff caf  (Bordmittel) · mp3 flac ogg … (mit ffmpeg)
 Video    mp4 mov mkv webm avi → untereinander, → gif, → mp3/… (mit ffmpeg)
 
 Mehrere Dateien zu EINER PDF zusammenführen:
-    uniconv scan1.png kapitel.docx notizen.md gesamt.pdf
+    uniconverter scan1.png kapitel.docx notizen.md gesamt.pdf
 """)
 
 
@@ -115,18 +115,18 @@ Mehrere Dateien zu EINER PDF zusammenführen:
 
 def build_parser():
     p = argparse.ArgumentParser(
-        prog="uniconv",
+        prog="uniconverter",
         description="Universeller lokaler Datei-Konverter – nichts verlässt deinen Mac.",
         epilog="""Beispiele:
-  uniconv foto.heic foto.jpg              einzelne Datei
-  uniconv *.heic -t jpg                   Stapel: alle HEIC → JPG (gleicher Ordner)
-  uniconv *.png -t webp -o ./web/         Stapel mit Zielordner
-  uniconv bericht.docx bericht.pdf        Word → PDF
-  uniconv skript.md skript.pdf            Markdown → PDF
-  uniconv paper.pdf paper.md              PDF → Markdown
-  uniconv scan1.png scan2.png doc.pdf     mehrere Dateien → EINE PDF
-  uniconv doctor                          zeigt, was installiert ist
-  uniconv formats                         alle unterstützten Wege""",
+  uniconverter foto.heic foto.jpg              einzelne Datei
+  uniconverter *.heic -t jpg                   Stapel: alle HEIC → JPG (gleicher Ordner)
+  uniconverter *.png -t webp -o ./web/         Stapel mit Zielordner
+  uniconverter bericht.docx bericht.pdf        Word → PDF
+  uniconverter skript.md skript.pdf            Markdown → PDF
+  uniconverter paper.pdf paper.md              PDF → Markdown
+  uniconverter scan1.png scan2.png doc.pdf     mehrere Dateien → EINE PDF
+  uniconverter doctor                          zeigt, was installiert ist
+  uniconverter formats                         alle unterstützten Wege""",
         formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("files", nargs="*", help="Eingabedatei(en), optional gefolgt von der Zieldatei")
     p.add_argument("-t", "--to", metavar="EXT",
@@ -172,7 +172,7 @@ def main(argv=None):
                 jobs.append((src, dst))
     else:
         if len(files) < 2:
-            sys.exit("Fehler: Zieldatei fehlt. Beispiel: uniconv foto.heic foto.jpg")
+            sys.exit("Fehler: Zieldatei fehlt. Beispiel: uniconverter foto.heic foto.jpg")
         *inputs, dst = files
         if dst.exists() and dst in [Path(f) for f in inputs]:
             sys.exit(f"Fehler: '{dst}' ist Eingabe und Ziel zugleich.")

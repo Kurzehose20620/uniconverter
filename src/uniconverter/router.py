@@ -78,7 +78,7 @@ def convert_one(src: Path, dst: Path, opts):
         return media.video_convert(src, dst, opts)
 
     raise ConvError(f".{se} → .{de} wird nicht unterstützt "
-                    "('uniconv formats' zeigt alle Wege)")
+                    "('uniconverter formats' zeigt alle Wege)")
 
 
 def to_pdf_temp(src: Path, tmpdir: str, opts):
