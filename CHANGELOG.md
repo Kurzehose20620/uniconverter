@@ -6,6 +6,10 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [1.0.0] – 2026-09-04
+
+First public release.
+
 ### Added
 
 - `uniconverter` command line: images (PNG, JPEG, HEIC, WebP, TIFF, BMP, GIF, AVIF, ICO)
@@ -34,3 +38,6 @@ All notable changes to this project are documented here. The format follows
 - Test suite (routing table, real conversions on tiny fixtures, CLI, app server) and
   GitHub Actions CI on macOS with Python 3.12–3.14.
 - MIT license.
+
+[Unreleased]: https://github.com/Kurzehose20620/uniconverter/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/Kurzehose20620/uniconverter/releases/tag/v1.0.0

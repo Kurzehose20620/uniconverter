@@ -7,5 +7,5 @@ printing) and Python libraries (PyMuPDF, Pillow, ...).
 
 from .errors import ConvError
 
-__version__ = "0.1.0"
+__version__ = "1.0.0"
 __all__ = ["ConvError", "__version__"]

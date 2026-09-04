@@ -12,7 +12,7 @@ requires-python = ">=3.12"
 authors = [{ name = "Leon Brzosa" }]
 keywords = ["macos", "file-conversion", "converter", "pdf", "heic", "markdown", "privacy", "cli"]
 classifiers = [
-  "Development Status :: 3 - Alpha",
+  "Development Status :: 5 - Production/Stable",
   "Environment :: Console",
   "Environment :: MacOS X",
   "Intended Audience :: End Users/Desktop",
@@ -39,6 +39,12 @@ dependencies = [
 [project.optional-dependencies]
 pdf2docx = ["pdf2docx"]
 dev = ["pytest", "ruff"]
+
+[project.urls]
+Homepage = "https://github.com/Kurzehose20620/uniconverter"
+Repository = "https://github.com/Kurzehose20620/uniconverter"
+Changelog = "https://github.com/Kurzehose20620/uniconverter/blob/main/CHANGELOG.md"
+Issues = "https://github.com/Kurzehose20620/uniconverter/issues"
 
 [project.scripts]
 uniconverter = "uniconverter.cli:main"
