@@ -51,6 +51,7 @@ Nützliche Befehle und Optionen:
 | `-q 85` | JPEG/WebP-Qualität (Standard 90) |
 | `--dpi 200` | Auflösung bei PDF → Bild (Standard 150) |
 | `--extract-images` | bei PDF → md auch die Bilder herausziehen |
+| `--ocr-lang deu+eng` | Sprachen der Texterkennung bei gescannten PDFs (Standard: automatisch) |
 | `-f` / `--force` | vorhandene Zieldateien überschreiben |
 
 ## Was es kann
@@ -60,7 +61,9 @@ Nützliche Befehle und Optionen:
 - **Word & Office**: docx/doc/odt/rtf (auch pptx, xlsx) → PDF oder Bilder
   (via LibreOffice), docx → Markdown/Text/HTML
 - **PDF**: → Markdown, Text, HTML, Bilder (pro Seite); mehrere PDFs/Bilder/
-  Dokumente zu einer PDF zusammenführen
+  Dokumente zu einer PDF zusammenführen. Gescannte Seiten ohne Textebene werden
+  per Texterkennung gelesen (Tesseract steckt in PyMuPDF, nur die Sprachdaten
+  müssen installiert sein)
 - **Markdown**: → PDF (sauber gesetzt via Chrome-Druck), HTML, DOCX, RTF
 - **Audio**: wav, m4a, aiff, caf mit Bordmitteln; mp3/flac/ogg mit ffmpeg
 - **Video** (mit ffmpeg): mp4, mov, mkv, webm untereinander, → GIF, → Audio
@@ -73,6 +76,7 @@ Alles funktioniert bereits – diese Installationen verbessern einzelne Wege:
 brew install pandoc typst    # beste Qualität für md → docx/pdf (Tabellen!)
 brew install ffmpeg          # Audio (mp3!) und Video
 brew install imagemagick     # exotische Bildformate
+brew install tesseract       # Texterkennung für gescannte PDFs (+ tesseract-lang für Deutsch u. a.)
 pipx inject uniconverter pdf2docx    # PDF → Word
 ```
 

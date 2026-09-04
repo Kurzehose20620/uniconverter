@@ -16,6 +16,11 @@ CHROME_CANDIDATES = [
 SOFFICE_CANDIDATES = [
     "/Applications/LibreOffice.app/Contents/MacOS/soffice",
 ]
+TESSDATA_CANDIDATES = [
+    "/opt/homebrew/share/tessdata",
+    "/usr/local/share/tessdata",
+    "/opt/local/share/tessdata",
+]
 
 
 def _which(name):
@@ -44,6 +49,32 @@ PANDOC = _which("pandoc")
 TYPST = _which("typst")
 MAGICK = _which("magick")
 FFMPEG = _which("ffmpeg")
+
+
+def _has_traineddata(d):
+    return bool(d) and any(Path(d).glob("*.traineddata"))
+
+
+def find_tessdata():
+    """Ordner mit Tesseract-Sprachdaten (*.traineddata) oder None.
+
+    Tesseract selbst steckt in PyMuPDF; nur die Sprachdaten müssen da sein
+    (TESSDATA_PREFIX, Homebrew/MacPorts-Pfade oder neben einem tesseract-Binary).
+    """
+    cands = [os.environ.get("TESSDATA_PREFIX", "")] + TESSDATA_CANDIDATES
+    t = _which("tesseract")
+    if t:
+        cands.append(str(Path(t).resolve().parent.parent / "share" / "tessdata"))
+    for c in cands:
+        if _has_traineddata(c):
+            return c
+        if c and _has_traineddata(Path(c) / "tessdata"):
+            return str(Path(c) / "tessdata")
+    return None
+
+
+def tessdata_languages(tessdata):
+    return sorted(p.stem for p in Path(tessdata).glob("*.traineddata") if p.stem != "osd")
 
 
 def load_pil():

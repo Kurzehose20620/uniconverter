@@ -81,6 +81,7 @@ def make_opts(payload):
         quality=max(1, min(100, int(payload.get("quality", 90)))),
         dpi=max(50, min(600, int(payload.get("dpi", 150)))),
         extract_images=bool(payload.get("extract_images", False)),
+        ocr_lang=payload.get("ocr_lang") or None,
         force=True,
     )
 

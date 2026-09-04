@@ -14,6 +14,9 @@ All notable changes to this project are documented here. The format follows
   LibreOffice and textutil; Markdown, HTML and text to PDF via Chrome headless
   (or pandoc + typst when installed); audio via afconvert or ffmpeg; video via ffmpeg.
 - Merging several files of mixed formats into a single PDF.
+- OCR for scanned PDFs: pages without a text layer are recognised with Tesseract
+  (built into PyMuPDF; needs language data, e.g. `brew install tesseract`) before
+  converting to Markdown, text or HTML. `--ocr-lang` picks the languages.
 - `uniconverter doctor` (shows which engines are available) and `uniconverter formats`.
 - `uniconverter-app`: drag-and-drop app served on 127.0.0.1 only, packaged as
   `Uniconverter.app` by `install.sh`.

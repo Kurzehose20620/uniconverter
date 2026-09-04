@@ -77,6 +77,11 @@ def cmd_doctor():
         "brew install imagemagick")
     row(bool(tools.FFMPEG), "ffmpeg", "Audio/Video-Konvertierung (optional)",
         "brew install ffmpeg")
+    td = tools.find_tessdata()
+    langs = ", ".join(tools.tessdata_languages(td)) if td else ""
+    row(bool(td), "tesseract", "Texterkennung für gescannte PDFs (optional)"
+        + (f" – Sprachen: {langs}" if langs else ""),
+        "brew install tesseract  (dazu tesseract-lang für Deutsch u. a.)")
 
 
 def cmd_formats():
@@ -90,6 +95,8 @@ Bilder   png jpg jpeg heic heif tiff bmp gif webp avif ico
 PDF      pdf → png/jpg/…   (eine Datei pro Seite, --dpi steuert Auflösung)
          pdf → md          (--extract-images legt Bilder daneben ab)
          pdf → txt, html
+         · gescannte Seiten ohne Text werden per Texterkennung gelesen
+           (Tesseract-Sprachdaten nötig, siehe 'doctor'; --ocr-lang deu+eng)
          pdf → docx        (optional: pdf2docx installieren)
 
 Office   docx doc odt rtf pptx xlsx …
@@ -138,6 +145,9 @@ def build_parser():
     p.add_argument("--dpi", type=int, default=150, help="Auflösung für PDF → Bild (Standard 150)")
     p.add_argument("--extract-images", action="store_true",
                    help="bei PDF → md: Bilder mit extrahieren")
+    p.add_argument("--ocr-lang", metavar="LANG", default=None,
+                   help="Sprache(n) der Texterkennung bei gescannten PDFs, z.B. deu+eng "
+                        "(Standard: automatisch aus den vorhandenen Sprachdaten)")
     p.add_argument("-f", "--force", action="store_true",
                    help="vorhandene Zieldateien überschreiben")
     return p
