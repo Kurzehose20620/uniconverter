@@ -1,26 +1,23 @@
-"""uniconverter App – lokale Drag-&-Drop-Oberfläche für uniconverter.
+"""uniconverter App – lokale Drag-&-Drop-Oberfläche in einem eigenen Fenster.
 
-Kleiner Webserver, der nur auf 127.0.0.1 lauscht. Dateien werden per
-Drag & Drop an die Seite übergeben, konvertiert und in Downloads bzw. auf
-dem Schreibtisch abgelegt. Nichts verlässt den Rechner.
+Ein kleiner Webserver lauscht nur auf 127.0.0.1; die Oberfläche (app.html)
+läuft in einem nativen WebKit-Fenster (pywebview), kein Browser nötig.
+Dateien werden an den Server übergeben, konvertiert und in Downloads bzw.
+auf dem Schreibtisch abgelegt. Nichts verlässt den Rechner.
 
-`uniconverter-app` sucht einen laufenden Server (oder startet einen im
-Hintergrund) und öffnet das App-Fenster. `uniconverter-app --serve` startet
-den Server im Vordergrund.
+`uniconverter-app` öffnet das Fenster; mit dem Fenster endet auch der Server.
+`uniconverter-app --serve` betreibt nur den Server (zum Öffnen im Browser).
 """
 
 import argparse
 import json
-import os
 import re
 import shutil
 import subprocess
 import sys
 import tempfile
 import threading
-import time
 import urllib.parse
-import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from importlib.resources import files
 from pathlib import Path
@@ -29,9 +26,11 @@ from types import SimpleNamespace
 from . import __version__
 from . import router as core
 
+APP_NAME = "Uniconverter"
 APP_VERSION = __version__
 PORT_RANGE = range(8756, 8766)
 HTML_FILE = files(__package__).joinpath("app.html")
+ICON_FILE = files(__package__).joinpath("Uniconverter.icns")
 
 UPLOAD_DIR = None     # wird in serve() angelegt
 UPLOADS = {}          # id -> Path
@@ -242,8 +241,8 @@ class Handler(BaseHTTPRequestHandler):
 
 # ---------------------------------------------------------------- Server
 
-def serve():
-    """Server im Vordergrund starten (bis /shutdown oder Ctrl-C)."""
+def make_server():
+    """Server an den ersten freien Port auf 127.0.0.1 binden und den Upload-Ordner anlegen."""
     global UPLOAD_DIR
     for port in PORT_RANGE:
         try:
@@ -254,81 +253,74 @@ def serve():
     else:
         sys.exit("Kein freier Port gefunden.")
     UPLOAD_DIR = Path(tempfile.mkdtemp(prefix="uniconverter-app-"))
-    print(f"uniconverter App läuft: http://127.0.0.1:{server.server_address[1]}")
+    return server
+
+
+def cleanup():
+    if UPLOAD_DIR:
+        shutil.rmtree(UPLOAD_DIR, ignore_errors=True)
+
+
+def serve():
+    """Nur den Server im Vordergrund betreiben (Browser-Variante, Tests)."""
+    server = make_server()
+    print(f"uniconverter App läuft: http://127.0.0.1:{server.server_address[1]}", flush=True)
     try:
         server.serve_forever()
     except KeyboardInterrupt:
         pass
     finally:
-        shutil.rmtree(UPLOAD_DIR, ignore_errors=True)
+        cleanup()
 
 
-# ---------------------------------------------------------------- Launcher
+# ---------------------------------------------------------------- App-Fenster
 
-def _ping(port, timeout=1.0):
+def _brand_process():
+    """Prozess als „Uniconverter“ ausweisen: Name in Menüleiste und Dock, Dock-Icon.
+
+    Aus einem venv gestartet hieße der Prozess sonst „Python“. Das von install.sh
+    gebaute Uniconverter.app bringt Name und Icon selbst mit.
+    """
     try:
-        with urllib.request.urlopen(f"http://127.0.0.1:{port}/ping", timeout=timeout) as r:
-            return json.load(r)
-    except (OSError, ValueError):
-        return None
+        from AppKit import NSApplication, NSBundle, NSImage
+    except ImportError:
+        return
+    NSBundle.mainBundle().infoDictionary()["CFBundleName"] = APP_NAME
+    icon = NSImage.alloc().initWithContentsOfFile_(str(ICON_FILE))
+    if icon is not None:
+        NSApplication.sharedApplication().setApplicationIconImage_(icon)
 
 
-def _post(port, path, timeout=2.0):
-    req = urllib.request.Request(f"http://127.0.0.1:{port}{path}", data=b"", method="POST")
+def run_window():
+    """Server im Hintergrund-Thread, Oberfläche im eigenen Fenster; Fenster zu = Ende."""
     try:
-        urllib.request.urlopen(req, timeout=timeout).close()
-    except OSError:
-        pass
-
-
-def find_server():
-    """Port eines laufenden Servers dieser Version; veraltete Server werden beendet."""
-    for port in PORT_RANGE:
-        info = _ping(port)
-        if not info or info.get("app") != "uniconverter":
-            continue
-        if info.get("version") == APP_VERSION:
-            return port
-        _post(port, "/shutdown")   # alte Version läuft noch – beenden, damit die neue startet
-    return None
-
-
-def ensure_server():
-    """Laufenden Server finden oder einen im Hintergrund starten; liefert den Port."""
-    port = find_server()
-    if port:
-        return port
-    subprocess.Popen([sys.executable, "-m", "uniconverter.app", "--serve"],
-                     stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
-                     stderr=subprocess.DEVNULL, start_new_session=True)
-    for _ in range(40):
-        time.sleep(0.25)
-        port = find_server()
-        if port:
-            return port
-    return None
-
-
-def open_window(url):
-    if os.path.isdir("/Applications/Google Chrome.app"):
-        subprocess.run(["open", "-na", "Google Chrome", "--args", f"--app={url}"])
-    else:
-        subprocess.run(["open", url])
+        import webview
+    except ImportError:
+        sys.exit("pywebview fehlt – Installation: pipx inject uniconverter pywebview\n"
+                 "Ohne Fenster: uniconverter-app --serve  (dann die URL im Browser öffnen)")
+    server = make_server()
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    url = f"http://127.0.0.1:{server.server_address[1]}"
+    _brand_process()
+    webview.create_window(APP_NAME, url, width=640, height=760, min_size=(520, 600))
+    try:
+        webview.start()
+    finally:
+        server.shutdown()
+        cleanup()
 
 
 def main(argv=None):
     p = argparse.ArgumentParser(
         prog="uniconverter-app",
-        description="Startet die uniconverter App (lokaler Server auf 127.0.0.1 + App-Fenster).")
+        description="Uniconverter als App: Drag-&-Drop-Fenster, lokaler Server nur auf 127.0.0.1.")
     p.add_argument("--serve", action="store_true",
-                   help="nur den Server im Vordergrund starten, kein Fenster öffnen")
+                   help="kein Fenster, nur den Server im Vordergrund starten (zeigt die URL)")
+    p.add_argument("--version", action="version", version=f"uniconverter {__version__}")
     args = p.parse_args(argv)
     if args.serve:
         return serve()
-    port = ensure_server()
-    if port is None:
-        sys.exit("uniconverter App konnte nicht gestartet werden.")
-    open_window(f"http://127.0.0.1:{port}")
+    run_window()
 
 
 if __name__ == "__main__":

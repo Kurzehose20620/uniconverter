@@ -10,8 +10,10 @@ Dateien ins Fenster ziehen, Zielformat auswählen, fertig. Ergebnisse landen
 in Downloads oder auf dem Schreibtisch („Zeigen" öffnet sie im Finder).
 Bei mehreren Dateien kann alles zu **einer** PDF zusammengefügt werden.
 
-Die App startet einen Mini-Server, der nur auf 127.0.0.1 lauscht – auch hier
-verlässt nichts den Rechner. Start alternativ im Terminal: `uniconverter-app`.
+Die App ist ein eigenes Fenster (WebKit, kein Browser nötig) mit einem
+Mini-Server, der nur auf 127.0.0.1 lauscht – auch hier verlässt nichts den
+Rechner. Start alternativ im Terminal: `uniconverter-app`. Nur der Server,
+zum Öffnen im Browser: `uniconverter-app --serve`.
 
 ## Installation
 

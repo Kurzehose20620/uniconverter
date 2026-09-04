@@ -33,6 +33,7 @@ dependencies = [
   "markdown",
   "mammoth",
   "html2text",
+  "pywebview",
 ]
 
 [project.optional-dependencies]

@@ -4,6 +4,7 @@ import argparse
 import sys
 from pathlib import Path
 
+from . import __version__
 from .engines import tools
 from .engines.tools import pip_hint
 from .errors import ConvError
@@ -150,6 +151,7 @@ def build_parser():
                         "(Standard: automatisch aus den vorhandenen Sprachdaten)")
     p.add_argument("-f", "--force", action="store_true",
                    help="vorhandene Zieldateien überschreiben")
+    p.add_argument("--version", action="version", version=f"uniconverter {__version__}")
     return p
 
 

@@ -18,7 +18,8 @@ All notable changes to this project are documented here. The format follows
   (built into PyMuPDF; needs language data, e.g. `brew install tesseract`) before
   converting to Markdown, text or HTML. `--ocr-lang` picks the languages.
 - `uniconverter doctor` (shows which engines are available) and `uniconverter formats`.
-- `uniconverter-app`: drag-and-drop app served on 127.0.0.1 only, packaged as
-  `Uniconverter.app` by `install.sh`.
+- `uniconverter-app`: drag-and-drop app in its own native window (WebKit via
+  pywebview, no browser needed) backed by a server on 127.0.0.1 only; `install.sh`
+  packages it as `Uniconverter.app`. `--serve` runs just the server for a browser.
 - Packaging with `pyproject.toml`; installable with `pipx install .`.
 - MIT license.
