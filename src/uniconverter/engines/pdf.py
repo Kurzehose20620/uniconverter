@@ -137,6 +137,8 @@ def pdf_to_images(src: Path, dst: Path, opts):
             out = dst
         else:
             out = dst.with_name(f"{dst.stem}-{i + 1:02d}{dst.suffix}")
+            if out.exists() and not getattr(opts, "force", False):
+                raise ConvError(f"{out.name} already exists (--force to overwrite)")
         if de in ("jpg", "jpeg"):
             pix.save(str(out), jpg_quality=opts.quality)
         elif de == "png":

@@ -1,8 +1,10 @@
 """Find external programs and Python libraries, run processes, phrase install hints."""
 
 import os
+import shlex
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 
 from ..errors import ConvError
@@ -41,14 +43,27 @@ def find_chrome():
     return _which("chromium") or _which("google-chrome")
 
 
-# Other modules access these as `tools.SOFFICE` etc. (not via from-import)
-# so that tests can swap the detection results.
-SOFFICE = find_soffice()
-CHROME = find_chrome()
-PANDOC = _which("pandoc")
-TYPST = _which("typst")
-MAGICK = _which("magick")
-FFMPEG = _which("ffmpeg")
+# External programs are looked up on first use, not at import time (PEP 562
+# module __getattr__). Other modules access them as `tools.SOFFICE` etc., so
+# tests can set a plain attribute to override the detection.
+_DETECTORS = {
+    "SOFFICE": find_soffice,
+    "CHROME": find_chrome,
+    "PANDOC": lambda: _which("pandoc"),
+    "TYPST": lambda: _which("typst"),
+    "MAGICK": lambda: _which("magick"),
+    "FFMPEG": lambda: _which("ffmpeg"),
+}
+_found = {}
+VERBOSE = False     # set by the CLI's --verbose: echo external commands to stderr
+
+
+def __getattr__(name):
+    if name in _DETECTORS:
+        if name not in _found:
+            _found[name] = _DETECTORS[name]()
+        return _found[name]
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
 def _has_traineddata(d):
@@ -110,6 +125,8 @@ def load_fitz():
 
 
 def run(cmd, err_hint=""):
+    if VERBOSE:
+        print("$ " + " ".join(shlex.quote(str(c)) for c in cmd), file=sys.stderr)
     res = subprocess.run(cmd, capture_output=True, text=True)
     if res.returncode != 0:
         msg = (res.stderr or res.stdout or "").strip().splitlines()
