@@ -13,6 +13,20 @@ Bei mehreren Dateien kann alles zu **einer** PDF zusammengefügt werden.
 Die App startet einen Mini-Server, der nur auf 127.0.0.1 lauscht – auch hier
 verlässt nichts den Rechner. Start alternativ im Terminal: `uniconv-app`.
 
+## Installation
+
+Voraussetzungen: macOS und [pipx](https://pipx.pypa.io)
+(`brew install pipx && pipx ensurepath`).
+
+```bash
+git clone <dieses Repo> uniconv && cd uniconv
+./install.sh              # CLI per pipx + Uniconv.app in ~/Applications
+```
+
+Nur das CLI, ohne App-Bundle: `pipx install .` – danach gibt es die Befehle
+`uniconv` und `uniconv-app`. Zum Entwickeln `./install.sh --editable`
+(Codeänderungen sind sofort wirksam).
+
 ## Benutzung im Terminal
 
 ```bash
@@ -59,16 +73,19 @@ Alles funktioniert bereits – diese Installationen verbessern einzelne Wege:
 brew install pandoc typst    # beste Qualität für md → docx/pdf (Tabellen!)
 brew install ffmpeg          # Audio (mp3!) und Video
 brew install imagemagick     # exotische Bildformate
-~/tools/uniconv/.venv/bin/pip install pdf2docx   # PDF → Word
+pipx inject uniconv pdf2docx    # PDF → Word
 ```
 
 ## Aufbau
 
-- `uniconv.py` – das eigentliche Tool (Python)
-- `uniconv` – Startskript, legt beim ersten Lauf automatisch die
-  Python-Umgebung `.venv` an
-- `install.sh` – erneut ausführen, falls der `uniconv`-Befehl mal fehlt
-  (verlinkt nach `/opt/homebrew/bin`)
+- `src/uniconv/cli.py` – Kommandozeile (`uniconv`)
+- `src/uniconv/app.py` + `app.html` – Drag-&-Drop-App (`uniconv-app`),
+  lokaler Server auf 127.0.0.1
+- `src/uniconv/router.py` – wählt anhand von Quell- und Zielendung die Engine
+- `src/uniconv/engines/` – `images`, `pdf`, `office`, `text`, `media`,
+  dazu `tools` (Erkennung externer Programme)
+- `install.sh` – pipx-Installation plus Uniconv.app; erneut ausführen, wenn
+  der `uniconv`-Befehl fehlt
 
 Genutzte Engines (Priorität je nach Verfügbarkeit): Pillow/PyMuPDF,
 macOS-Bordmittel (`sips`, `textutil`, `afconvert`), LibreOffice headless,
