@@ -1,4 +1,4 @@
-"""Router: entscheidet anhand von Quell- und Zielendung, welche Engine konvertiert."""
+"""Router: picks the engine from the source and target extensions."""
 
 import importlib.util
 import tempfile
@@ -77,12 +77,12 @@ def convert_one(src: Path, dst: Path, opts):
     if se in VIDEO_EXT and (de in VIDEO_EXT | AUDIO_EXT or de == "gif"):
         return media.video_convert(src, dst, opts)
 
-    raise ConvError(f".{se} → .{de} wird nicht unterstützt "
-                    "('uniconverter formats' zeigt alle Wege)")
+    raise ConvError(f".{se} → .{de} is not supported "
+                    "('uniconverter formats' lists every route)")
 
 
 def to_pdf_temp(src: Path, tmpdir: str, opts):
-    """Beliebige Eingabe für den Merge in eine temporäre PDF wandeln."""
+    """Turn any input into a temporary PDF for merging."""
     if ext_of(src) == "pdf":
         return src
     out = Path(tmpdir) / (src.stem + "-" + str(abs(hash(str(src))) % 10000) + ".pdf")
@@ -99,11 +99,11 @@ def merge_to_pdf(sources, dst: Path, opts):
             pdf_file = to_pdf_temp(s, td, opts)
             out.insert_pdf(fitz.open(str(pdf_file)))
         out.save(str(dst))
-    print(f"✓ {len(sources)} Dateien → {dst}")
+    print(f"✓ {len(sources)} files → {dst}")
 
 
 def possible_targets(se):
-    """Alle Ziel-Endungen, die convert_one für diese Quell-Endung anbietet."""
+    """All target extensions convert_one offers for this source extension."""
     t = set()
     if se in IMAGE_EXT:
         t |= (IMAGE_EXT - {se, "heif"}) | {"pdf"}
@@ -127,4 +127,4 @@ def possible_targets(se):
         t |= (AUDIO_EXT if tools.FFMPEG else set(AFCONVERT_MAP)) - {se, "aif"}
     if se in VIDEO_EXT and tools.FFMPEG:
         t |= (VIDEO_EXT - {se, "m4v"}) | {"gif", "mp3", "m4a", "wav"}
-    return sorted(t - {"jpeg", "tif", "htm", "aif"})  # Alias-Endungen ausblenden
+    return sorted(t - {"jpeg", "tif", "htm", "aif"})  # hide alias extensions

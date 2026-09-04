@@ -1,4 +1,4 @@
-"""Audio und Video: ffmpeg, sonst afconvert (macOS) für die Audio-Basisformate."""
+"""Audio and video: ffmpeg, otherwise afconvert (macOS) for the basic audio formats."""
 
 from pathlib import Path
 
@@ -23,7 +23,7 @@ def audio_to_audio(src: Path, dst: Path, opts):
     if de in AFCONVERT_MAP:
         run(["afconvert"] + AFCONVERT_MAP[de] + [str(src), str(dst)])
         return
-    need(False, f"ffmpeg (für .{de}-Ausgabe)", "brew install ffmpeg")
+    need(False, f"ffmpeg (for .{de} output)", "brew install ffmpeg")
 
 
 def video_convert(src: Path, dst: Path, opts):

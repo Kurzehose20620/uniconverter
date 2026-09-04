@@ -17,6 +17,7 @@ All notable changes to this project are documented here. The format follows
 - OCR for scanned PDFs: pages without a text layer are recognised with Tesseract
   (built into PyMuPDF; needs language data, e.g. `brew install tesseract`) before
   converting to Markdown, text or HTML. `--ocr-lang` picks the languages.
+  Without it the OCR languages follow the system language, plus English.
 - `uniconverter doctor` (shows which engines are available) and `uniconverter formats`.
 - `uniconverter-app`: drag-and-drop app in its own native window (WebKit via
   pywebview, no browser needed) backed by a server on 127.0.0.1 only; `install.sh`

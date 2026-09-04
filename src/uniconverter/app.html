@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="de">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -92,13 +92,13 @@
 <main>
   <header>
     <h1>Uniconverter</h1>
-    <span class="badge">100&nbsp;% lokal – nichts wird hochgeladen</span>
+    <span class="badge">100&nbsp;% local – nothing is uploaded</span>
   </header>
 
   <div id="drop">
     <div class="big">📥</div>
-    <p><strong>Dateien hierher ziehen</strong> oder klicken zum Auswählen</p>
-    <p>Bilder · Word · PDF · Markdown · Audio · Video</p>
+    <p><strong>Drop files here</strong> or click to choose</p>
+    <p>Images · Word · PDF · Markdown · Audio · Video</p>
     <input id="picker" type="file" multiple class="hidden">
   </div>
 
@@ -108,35 +108,35 @@
 
   <div class="card hidden" id="optioncard">
     <div class="row">
-      <label for="target">Zielformat</label>
+      <label for="target">Target format</label>
       <select id="target"></select>
     </div>
     <div class="row hidden" id="qualrow">
-      <label for="quality">Qualität <span id="qualval">90</span></label>
+      <label for="quality">Quality <span id="qualval">90</span></label>
       <input type="range" id="quality" min="40" max="100" value="90" style="flex:1">
     </div>
     <div class="row hidden" id="dpirow">
-      <label for="dpi">Auflösung</label>
+      <label for="dpi">Resolution</label>
       <select id="dpi">
-        <option value="100">100 dpi – klein</option>
+        <option value="100">100 dpi – small</option>
         <option value="150" selected>150 dpi – normal</option>
-        <option value="220">220 dpi – fein</option>
-        <option value="300">300 dpi – Druck</option>
+        <option value="220">220 dpi – fine</option>
+        <option value="300">300 dpi – print</option>
       </select>
     </div>
     <div class="row hidden" id="mergerow">
       <label class="check" style="min-width:0">
-        <input type="checkbox" id="merge"> Alle zu <strong>einer</strong> PDF zusammenfügen
+        <input type="checkbox" id="merge"> Merge everything into <strong>one</strong> PDF
       </label>
     </div>
     <div class="row">
-      <label for="outdir">Speichern in</label>
+      <label for="outdir">Save to</label>
       <select id="outdir">
         <option value="downloads" selected>Downloads</option>
-        <option value="desktop">Schreibtisch</option>
+        <option value="desktop">Desktop</option>
       </select>
     </div>
-    <button id="go">Konvertieren</button>
+    <button id="go">Convert</button>
     <div id="status"></div>
   </div>
 
@@ -144,7 +144,7 @@
     <ul id="results"></ul>
   </div>
 
-  <footer>läuft nur auf deinem Mac (127.0.0.1) · Terminal-Variante: <code>uniconverter</code></footer>
+  <footer>runs only on your Mac (127.0.0.1) · command line: <code>uniconverter</code></footer>
 </main>
 
 <script>
@@ -211,7 +211,7 @@ function renderFiles() {
     const size = document.createElement('span');
     size.className = 'size'; size.textContent = fmtSize(f.size);
     const rm = document.createElement('button');
-    rm.textContent = '✕'; rm.title = 'entfernen';
+    rm.textContent = '✕'; rm.title = 'remove';
     rm.addEventListener('click', () => removeFile(i));
     li.append(name, size, rm);
     filelist.appendChild(li);
@@ -228,14 +228,14 @@ async function refreshTargets() {
     const r = await fetch('/targets?exts=' + encodeURIComponent(exts.join(',')));
     data = await r.json();
   } catch {
-    statusEl.textContent = 'Keine Verbindung zur App – bitte Uniconverter neu öffnen.';
+    statusEl.textContent = 'No connection to the app – please reopen Uniconverter.';
     return;
   }
   const prev = targetSel.value;
   targetSel.innerHTML = '';
   if (data.targets.length === 0) {
     const o = document.createElement('option');
-    o.textContent = 'keine gemeinsame Konvertierung möglich';
+    o.textContent = 'no target format shared by all files';
     o.value = ''; targetSel.appendChild(o);
     go.disabled = true;
   } else {
@@ -271,16 +271,16 @@ go.addEventListener('click', async () => {
   try {
     const ids = [];
     for (let i = 0; i < files.length; i++) {
-      statusEl.textContent = `Übergebe Datei ${i + 1} von ${files.length} …`;
+      statusEl.textContent = `Sending file ${i + 1} of ${files.length} …`;
       const r = await fetch('/upload', {
         method: 'POST',
         headers: { 'X-Filename': encodeURIComponent(files[i].name) },
         body: files[i],
       });
-      if (!r.ok) throw new Error((await r.json()).error || 'Übergabe fehlgeschlagen');
+      if (!r.ok) throw new Error((await r.json()).error || 'upload failed');
       ids.push((await r.json()).id);
     }
-    statusEl.textContent = 'Konvertiere …';
+    statusEl.textContent = 'Converting …';
     const r = await fetch('/convert', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -290,19 +290,19 @@ go.addEventListener('click', async () => {
         merge: merge.checked && !merge.disabled,
       }),
     });
-    if (!r.ok) throw new Error((await r.json()).error || 'Konvertierung fehlgeschlagen');
+    if (!r.ok) throw new Error((await r.json()).error || 'conversion failed');
     const data = await r.json();
     renderResults(data);
     statusEl.textContent = '';
   } catch (e) {
-    statusEl.textContent = '✗ ' + (e.message || 'Keine Verbindung – bitte Uniconverter neu öffnen.');
+    statusEl.textContent = '✗ ' + (e.message || 'no connection – please reopen Uniconverter.');
   }
   go.disabled = false;
 });
 
 function renderResults(data) {
   resultcard.classList.remove('hidden');
-  const dirLabel = outdir.value === 'desktop' ? 'Schreibtisch' : 'Downloads';
+  const dirLabel = outdir.value === 'desktop' ? 'Desktop' : 'Downloads';
   for (const res of data.results) {
     const li = document.createElement('li');
     li.className = 'result ' + (res.ok ? 'ok' : 'err');
@@ -325,7 +325,7 @@ function renderResults(data) {
     li.append(mark, detail);
     if (res.ok && res.files.length) {
       const btn = document.createElement('button');
-      btn.className = 'linkbtn'; btn.textContent = 'Zeigen';
+      btn.className = 'linkbtn'; btn.textContent = 'Show in Finder';
       btn.addEventListener('click', () => fetch('/reveal', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

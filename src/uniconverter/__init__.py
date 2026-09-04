@@ -1,8 +1,8 @@
-"""uniconverter – universeller lokaler Datei-Konverter für macOS.
+"""uniconverter – universal local file converter for macOS.
 
-Alles läuft zu 100 % lokal, keine Datei verlässt den Rechner.
-Nutzt vorhandene macOS-Bordmittel (sips, textutil, afconvert), LibreOffice,
-Chrome (Headless-PDF-Druck) und Python-Bibliotheken (PyMuPDF, Pillow, …).
+Everything runs on your machine; no file ever leaves it. Uses what macOS
+ships (sips, textutil, afconvert), LibreOffice, Chrome (headless PDF
+printing) and Python libraries (PyMuPDF, Pillow, ...).
 """
 
 from .errors import ConvError

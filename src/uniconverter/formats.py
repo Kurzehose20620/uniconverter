@@ -1,4 +1,4 @@
-"""Dateiendungen nach Gattung, plus Hilfsfunktion für die Endung eines Pfads."""
+"""File extensions grouped by family, plus a helper for the extension of a path."""
 
 from pathlib import Path
 

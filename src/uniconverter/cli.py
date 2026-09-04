@@ -1,4 +1,4 @@
-"""Kommandozeile: Argumente, Stapelverarbeitung, PDF-Merge, `doctor` und `formats`."""
+"""Command line: argument parsing, batch loop, PDF merge, `doctor` and `formats`."""
 
 import argparse
 import sys
@@ -6,13 +6,13 @@ from pathlib import Path
 
 from . import __version__
 from .engines import tools
+from .engines.pdf import default_ocr_languages
 from .engines.tools import pip_hint
 from .errors import ConvError
 from .formats import ext_of
 from .router import convert_one, merge_to_pdf
 
 # ---------------------------------------------------------------- Doctor / Formats
-
 
 
 def cmd_doctor():
@@ -23,86 +23,71 @@ def cmd_doctor():
             line += f"\n      → {hint}"
         print(line)
 
-    print("Basis (macOS-Bordmittel):")
-    row(True, "sips", "Bildformate inkl. HEIC")
-    row(True, "textutil", "Word/RTF/HTML/TXT untereinander")
-    row(True, "afconvert", "Audio-Basisformate (wav, m4a, aiff)")
+    def has(module):
+        try:
+            __import__(module)
+            return True
+        except ImportError:
+            return False
 
-    print("\nPython-Bibliotheken:")
-    row(tools.load_fitz() is not None, "pymupdf", "PDF → Bilder, Bilder → PDF, PDF-Merge",
+    print("Built into macOS:")
+    row(True, "sips", "image formats incl. HEIC")
+    row(True, "textutil", "Word/RTF/HTML/TXT between each other")
+    row(True, "afconvert", "basic audio formats (wav, m4a, aiff)")
+
+    print("\nPython libraries:")
+    row(tools.load_fitz() is not None, "pymupdf", "PDF → images, images → PDF, PDF merge",
         pip_hint("pymupdf"))
-    try:
-        import pymupdf4llm  # noqa: F401
-        ok4llm = True
-    except ImportError:
-        ok4llm = False
-    row(ok4llm, "pymupdf4llm", "PDF → Markdown", pip_hint("pymupdf4llm"))
-    row(tools.load_pil() is not None, "pillow", "Bildkonvertierung (webp, ico, …)",
+    row(has("pymupdf4llm"), "pymupdf4llm", "PDF → Markdown", pip_hint("pymupdf4llm"))
+    row(tools.load_pil() is not None, "pillow", "image conversion (webp, ico, …)",
         pip_hint("pillow pillow-heif"))
-    try:
-        import markdown  # noqa: F401
-        okmd = True
-    except ImportError:
-        okmd = False
-    row(okmd, "markdown", "Markdown → HTML/PDF/DOCX", pip_hint("markdown"))
-    try:
-        import mammoth  # noqa: F401
-        okmam = True
-    except ImportError:
-        okmam = False
-    row(okmam, "mammoth", "DOCX → Markdown (ohne pandoc)", pip_hint("mammoth"))
-    try:
-        import html2text  # noqa: F401
-        okh2t = True
-    except ImportError:
-        okh2t = False
-    row(okh2t, "html2text", "HTML → Markdown", pip_hint("html2text"))
-    try:
-        import pdf2docx  # noqa: F401
-        okp2d = True
-    except ImportError:
-        okp2d = False
-    row(okp2d, "pdf2docx", "PDF → DOCX (optional, ~100 MB)",
-        pip_hint("pdf2docx"))
+    row(has("markdown"), "markdown", "Markdown → HTML/PDF/DOCX", pip_hint("markdown"))
+    row(has("mammoth"), "mammoth", "DOCX → Markdown (without pandoc)", pip_hint("mammoth"))
+    row(has("html2text"), "html2text", "HTML → Markdown", pip_hint("html2text"))
+    row(has("pdf2docx"), "pdf2docx", "PDF → DOCX (optional, ~100 MB)", pip_hint("pdf2docx"))
 
-    print("\nProgramme:")
+    print("\nPrograms:")
     row(bool(tools.SOFFICE), "LibreOffice", "Word/Excel/PowerPoint → PDF",
         "brew install --cask libreoffice")
-    row(bool(tools.CHROME), "Chrome", "Markdown/HTML → PDF (Headless-Druck)",
+    row(bool(tools.CHROME), "Chrome", "Markdown/HTML → PDF (headless printing)",
         "brew install --cask google-chrome")
-    row(bool(tools.PANDOC), "pandoc", "beste Qualität für md ↔ docx (optional)",
+    row(bool(tools.PANDOC), "pandoc", "best quality for md ↔ docx (optional)",
         "brew install pandoc")
-    row(bool(tools.TYPST), "typst", "schönerer md → PDF-Satz mit pandoc (optional)",
+    row(bool(tools.TYPST), "typst", "nicer md → PDF typesetting with pandoc (optional)",
         "brew install typst")
-    row(bool(tools.MAGICK), "imagemagick", "exotische Bildformate (optional)",
+    row(bool(tools.MAGICK), "imagemagick", "exotic image formats (optional)",
         "brew install imagemagick")
-    row(bool(tools.FFMPEG), "ffmpeg", "Audio/Video-Konvertierung (optional)",
+    row(bool(tools.FFMPEG), "ffmpeg", "audio/video conversion (optional)",
         "brew install ffmpeg")
     td = tools.find_tessdata()
-    langs = ", ".join(tools.tessdata_languages(td)) if td else ""
-    row(bool(td), "tesseract", "Texterkennung für gescannte PDFs (optional)"
-        + (f" – Sprachen: {langs}" if langs else ""),
-        "brew install tesseract  (dazu tesseract-lang für Deutsch u. a.)")
+    note = ""
+    if td:
+        default, installed = default_ocr_languages(td), tools.tessdata_languages(td)
+        note = f" – uses {'+'.join(default)}"
+        if len(installed) > len(default):
+            note += f" ({len(installed)} languages installed)"
+    row(bool(td), "tesseract", "OCR for scanned PDFs (optional)" + note,
+        "brew install tesseract  (plus tesseract-lang for more languages)")
 
 
 def cmd_formats():
-    print("""Unterstützte Konvertierungen
-============================
+    print("""Supported conversions
+=====================
 
-Bilder   png jpg jpeg heic heif tiff bmp gif webp avif ico
-         · untereinander in beliebige Richtung
-         · Bild(er) → pdf   (mehrere Eingaben = mehrseitige PDF)
+Images   png jpg jpeg heic heif tiff bmp gif webp avif ico
+         · between each other in any direction
+         · image(s) → pdf   (several inputs = one multi-page PDF)
 
-PDF      pdf → png/jpg/…   (eine Datei pro Seite, --dpi steuert Auflösung)
-         pdf → md          (--extract-images legt Bilder daneben ab)
+PDF      pdf → png/jpg/…   (one file per page, --dpi sets the resolution)
+         pdf → md          (--extract-images saves the images next to it)
          pdf → txt, html
-         · gescannte Seiten ohne Text werden per Texterkennung gelesen
-           (Tesseract-Sprachdaten nötig, siehe 'doctor'; --ocr-lang deu+eng)
-         pdf → docx        (optional: pdf2docx installieren)
+         · scanned pages without text are read with OCR
+           (needs Tesseract language data, see 'doctor'; --ocr-lang deu+eng)
+         pdf → docx        (optional: install pdf2docx)
 
 Office   docx doc odt rtf pptx xlsx …
          · → pdf           (via LibreOffice)
-         · → png/jpg       (eine Datei pro Seite)
+         · → png/jpg       (one file per page)
          · docx/doc/odt/rtf → md, txt, html, docx, odt, rtf
 
 Markdown md → pdf, html, docx, rtf, odt
@@ -111,11 +96,11 @@ HTML     html → pdf, md, docx, rtf, txt
 
 Text     txt → pdf, docx, rtf, html
 
-Audio    wav m4a aiff caf  (Bordmittel) · mp3 flac ogg … (mit ffmpeg)
-Video    mp4 mov mkv webm avi → untereinander, → gif, → mp3/… (mit ffmpeg)
+Audio    wav m4a aiff caf  (built in) · mp3 flac ogg … (with ffmpeg)
+Video    mp4 mov mkv webm avi → each other, → gif, → mp3/… (with ffmpeg)
 
-Mehrere Dateien zu EINER PDF zusammenführen:
-    uniconverter scan1.png kapitel.docx notizen.md gesamt.pdf
+Merge several files into ONE PDF:
+    uniconverter scan1.png chapter.docx notes.md all.pdf
 """)
 
 
@@ -124,33 +109,35 @@ Mehrere Dateien zu EINER PDF zusammenführen:
 def build_parser():
     p = argparse.ArgumentParser(
         prog="uniconverter",
-        description="Universeller lokaler Datei-Konverter – nichts verlässt deinen Mac.",
-        epilog="""Beispiele:
-  uniconverter foto.heic foto.jpg              einzelne Datei
-  uniconverter *.heic -t jpg                   Stapel: alle HEIC → JPG (gleicher Ordner)
-  uniconverter *.png -t webp -o ./web/         Stapel mit Zielordner
-  uniconverter bericht.docx bericht.pdf        Word → PDF
-  uniconverter skript.md skript.pdf            Markdown → PDF
-  uniconverter paper.pdf paper.md              PDF → Markdown
-  uniconverter scan1.png scan2.png doc.pdf     mehrere Dateien → EINE PDF
-  uniconverter doctor                          zeigt, was installiert ist
-  uniconverter formats                         alle unterstützten Wege""",
+        description="Universal local file converter – nothing leaves your Mac.",
+        epilog="""examples:
+  uniconverter photo.heic photo.jpg          single file
+  uniconverter *.heic -t jpg                 batch: every HEIC → JPG (same folder)
+  uniconverter *.png -t webp -o ./web/       batch into a target folder
+  uniconverter report.docx report.pdf        Word → PDF
+  uniconverter script.md script.pdf          Markdown → PDF
+  uniconverter paper.pdf paper.md            PDF → Markdown (OCR for scans)
+  uniconverter scan1.png scan2.png doc.pdf   several files → ONE PDF
+  uniconverter doctor                        show which engines are available
+  uniconverter formats                       list every supported route""",
         formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument("files", nargs="*", help="Eingabedatei(en), optional gefolgt von der Zieldatei")
+    p.add_argument("files", nargs="*",
+                   help="input file(s), optionally followed by the output file")
     p.add_argument("-t", "--to", metavar="EXT",
-                   help="Zielformat für Stapelverarbeitung (z.B. jpg)")
-    p.add_argument("-o", "--out", metavar="PFAD",
-                   help="Zielordner (Stapel) oder Zieldatei (PDF-Merge)")
+                   help="target format for batch conversion (e.g. jpg)")
+    p.add_argument("-o", "--out", metavar="PATH",
+                   help="output folder (batch) or output file (PDF merge)")
     p.add_argument("-q", "--quality", type=int, default=90,
-                   help="JPEG/WebP-Qualität 1–100 (Standard 90)")
-    p.add_argument("--dpi", type=int, default=150, help="Auflösung für PDF → Bild (Standard 150)")
+                   help="JPEG/WebP quality 1–100 (default 90)")
+    p.add_argument("--dpi", type=int, default=150,
+                   help="resolution for PDF → image (default 150)")
     p.add_argument("--extract-images", action="store_true",
-                   help="bei PDF → md: Bilder mit extrahieren")
+                   help="PDF → md: also extract the images")
     p.add_argument("--ocr-lang", metavar="LANG", default=None,
-                   help="Sprache(n) der Texterkennung bei gescannten PDFs, z.B. deu+eng "
-                        "(Standard: automatisch aus den vorhandenen Sprachdaten)")
+                   help="OCR language(s) for scanned PDFs, e.g. deu+eng "
+                        "(default: chosen from the installed language data)")
     p.add_argument("-f", "--force", action="store_true",
-                   help="vorhandene Zieldateien überschreiben")
+                   help="overwrite existing output files")
     p.add_argument("--version", action="version", version=f"uniconverter {__version__}")
     return p
 
@@ -184,40 +171,40 @@ def main(argv=None):
                 jobs.append((src, dst))
     else:
         if len(files) < 2:
-            sys.exit("Fehler: Zieldatei fehlt. Beispiel: uniconverter foto.heic foto.jpg")
+            sys.exit("Error: output file missing. Example: uniconverter photo.heic photo.jpg")
         *inputs, dst = files
         if dst.exists() and dst in [Path(f) for f in inputs]:
-            sys.exit(f"Fehler: '{dst}' ist Eingabe und Ziel zugleich.")
+            sys.exit(f"Error: '{dst}' is both input and output.")
         if len(inputs) > 1:
             if ext_of(dst) != "pdf":
-                sys.exit("Fehler: mehrere Eingaben brauchen -t EXT (Stapel) "
-                         "oder eine .pdf-Zieldatei (Merge).")
+                sys.exit("Error: several inputs need -t EXT (batch) "
+                         "or a .pdf output file (merge).")
             merge = (inputs, dst)
         else:
             jobs.append((inputs[0], dst))
 
     for src in (merge[0] if merge else [j[0] for j in jobs]):
         if not src.exists():
-            sys.exit(f"Fehler: Eingabedatei nicht gefunden: {src}")
+            sys.exit(f"Error: input file not found: {src}")
 
     if merge:
         inputs, dst = merge
         if dst.exists() and not args.force:
-            sys.exit(f"Fehler: '{dst}' existiert schon (--force zum Überschreiben).")
+            sys.exit(f"Error: '{dst}' already exists (--force to overwrite).")
         try:
             merge_to_pdf(inputs, dst, args)
         except ConvError as e:
-            sys.exit(f"✗ Merge fehlgeschlagen: {e}")
+            sys.exit(f"✗ merge failed: {e}")
         return
 
     failed = 0
     for src, dst in jobs:
         if src.resolve() == dst.resolve():
-            print(f"✗ {src.name}: Quelle und Ziel identisch – übersprungen")
+            print(f"✗ {src.name}: source and target are the same file – skipped")
             failed += 1
             continue
         if dst.exists() and not args.force:
-            print(f"✗ {dst.name} existiert schon (--force zum Überschreiben)")
+            print(f"✗ {dst.name} already exists (--force to overwrite)")
             failed += 1
             continue
         try:
@@ -227,7 +214,7 @@ def main(argv=None):
             print(f"✗ {src.name}: {e}")
             failed += 1
         except Exception as e:
-            print(f"✗ {src.name}: unerwarteter Fehler: {e}")
+            print(f"✗ {src.name}: unexpected error: {e}")
             failed += 1
     if failed:
         sys.exit(1)

@@ -1,4 +1,4 @@
-"""Office-Dokumente: LibreOffice headless, textutil (macOS), pandoc/mammoth für DOCX → Markdown."""
+"""Office documents: LibreOffice headless, textutil (macOS), pandoc/mammoth for DOCX → Markdown."""
 
 import shutil
 import tempfile
@@ -17,11 +17,11 @@ def office_to_pdf(src: Path, dst: Path, opts):
         run([tools.SOFFICE, "--headless", "--norestore",
              f"-env:UserInstallation={profile.as_uri()}",
              "--convert-to", "pdf", "--outdir", td, str(src)],
-            err_hint="läuft LibreOffice gerade offen? Bitte schließen.")
+            err_hint="is LibreOffice open right now? Please close it.")
         produced = Path(td) / (src.stem + ".pdf")
         if not produced.exists():
-            raise ConvError("LibreOffice hat keine PDF erzeugt "
-                            "(Datei beschädigt oder Format nicht unterstützt?)")
+            raise ConvError("LibreOffice produced no PDF "
+                            "(file damaged or format not supported?)")
         shutil.move(str(produced), str(dst))
 
 
@@ -33,7 +33,7 @@ def office_to_docx(src: Path, tmpdir: str):
              "--convert-to", "docx", "--outdir", tmpdir, str(src)])
     out = Path(tmpdir) / (src.stem + ".docx")
     if not out.exists():
-        raise ConvError("Zwischenschritt nach .docx fehlgeschlagen")
+        raise ConvError("intermediate conversion to .docx failed")
     return out
 
 
@@ -44,13 +44,13 @@ def docx_to_md(src: Path, dst: Path, opts):
             return docx_to_md(office_to_docx(src, td), dst, opts)
     if tools.PANDOC:
         run([tools.PANDOC, str(src), "-t", "gfm", "-o", str(dst),
-             "--extract-media", str(dst.parent / f"{dst.stem}_medien")])
+             "--extract-media", str(dst.parent / f"{dst.stem}_media")])
         return
     try:
         import mammoth
     except ImportError:
-        raise ConvError("dafür wird pandoc oder mammoth benötigt – "
-                        f"brew install pandoc  (oder: {pip_hint('mammoth')})")
+        raise ConvError("this needs pandoc or mammoth – "
+                        f"brew install pandoc  (or: {pip_hint('mammoth')})")
     with open(src, "rb") as f:
         result = mammoth.convert_to_markdown(f)
     dst.write_text(result.value, encoding="utf-8")

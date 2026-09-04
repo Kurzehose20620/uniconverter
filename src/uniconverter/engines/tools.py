@@ -1,4 +1,4 @@
-"""Externe Programme und Python-Bibliotheken finden, Prozesse aufrufen, Hinweise formulieren."""
+"""Find external programs and Python libraries, run processes, phrase install hints."""
 
 import os
 import shutil
@@ -41,8 +41,8 @@ def find_chrome():
     return _which("chromium") or _which("google-chrome")
 
 
-# Andere Module greifen über `tools.SOFFICE` usw. zu (nicht per from-import),
-# damit sich die Erkennung in Tests austauschen lässt.
+# Other modules access these as `tools.SOFFICE` etc. (not via from-import)
+# so that tests can swap the detection results.
 SOFFICE = find_soffice()
 CHROME = find_chrome()
 PANDOC = _which("pandoc")
@@ -56,10 +56,10 @@ def _has_traineddata(d):
 
 
 def find_tessdata():
-    """Ordner mit Tesseract-Sprachdaten (*.traineddata) oder None.
+    """Directory with Tesseract language data (*.traineddata), or None.
 
-    Tesseract selbst steckt in PyMuPDF; nur die Sprachdaten müssen da sein
-    (TESSDATA_PREFIX, Homebrew/MacPorts-Pfade oder neben einem tesseract-Binary).
+    Tesseract itself is built into PyMuPDF; only the language files are needed
+    (TESSDATA_PREFIX, Homebrew/MacPorts paths, or next to a tesseract binary).
     """
     cands = [os.environ.get("TESSDATA_PREFIX", "")] + TESSDATA_CANDIDATES
     t = _which("tesseract")
@@ -78,7 +78,7 @@ def tessdata_languages(tessdata):
 
 
 def load_pil():
-    """Pillow-Image-Modul mit HEIF/AVIF-Unterstützung, oder None."""
+    """Pillow's Image module with HEIF/AVIF support registered, or None."""
     try:
         from PIL import Image
         try:
@@ -97,13 +97,13 @@ def load_pil():
 
 
 def load_fitz():
-    """PyMuPDF-Modul, oder None."""
+    """The PyMuPDF module, or None."""
     try:
         import pymupdf
         return pymupdf
     except ImportError:
         try:
-            import fitz  # ältere PyMuPDF-Versionen
+            import fitz  # older PyMuPDF versions
             return fitz
         except ImportError:
             return None
@@ -113,17 +113,17 @@ def run(cmd, err_hint=""):
     res = subprocess.run(cmd, capture_output=True, text=True)
     if res.returncode != 0:
         msg = (res.stderr or res.stdout or "").strip().splitlines()
-        detail = msg[-1] if msg else "unbekannter Fehler"
+        detail = msg[-1] if msg else "unknown error"
         raise ConvError(f"{Path(cmd[0]).name}: {detail}" +
                         (f" – {err_hint}" if err_hint else ""))
     return res
 
 
-def need(condition, was, install_hint):
+def need(condition, what, install_hint):
     if not condition:
-        raise ConvError(f"dafür wird {was} benötigt – Installation: {install_hint}")
+        raise ConvError(f"this needs {what} – install with: {install_hint}")
 
 
 def pip_hint(pkg):
-    """Installationshinweis für ein fehlendes Python-Paket (uniconverter läuft im pipx-venv)."""
+    """Install hint for a missing Python package (uniconverter lives in a pipx venv)."""
     return f"pipx inject uniconverter {pkg}"

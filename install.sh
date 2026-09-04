@@ -1,7 +1,7 @@
 #!/bin/bash
-# uniconverter-Installer (macOS): installiert das CLI per pipx und baut Uniconverter.app.
-#   ./install.sh              normale Installation
-#   ./install.sh --editable   Entwicklungsmodus: Codeänderungen sind sofort wirksam
+# uniconverter installer (macOS): installs the CLI via pipx and builds Uniconverter.app.
+#   ./install.sh              normal installation
+#   ./install.sh --editable   development mode: code changes take effect immediately
 set -euo pipefail
 
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -11,28 +11,28 @@ case "${1:-}" in
 esac
 
 if ! command -v pipx >/dev/null 2>&1; then
-    echo "pipx fehlt. Installation:  brew install pipx && pipx ensurepath" >&2
+    echo "pipx is missing. Install it with:  brew install pipx && pipx ensurepath" >&2
     exit 1
 fi
 
-echo "1/2  uniconverter installieren (pipx) …"
+echo "1/2  Installing uniconverter (pipx) …"
 pipx install --force $EDITABLE "$DIR"
 
 PIPX_BIN="$(pipx environment --value PIPX_BIN_DIR 2>/dev/null || echo "$HOME/.local/bin")"
 APP_BIN="$PIPX_BIN/uniconverter-app"
 if [ ! -x "$APP_BIN" ]; then
-    echo "Fehler: $APP_BIN wurde nicht angelegt." >&2
+    echo "Error: $APP_BIN was not created." >&2
     exit 1
 fi
 
 FOUND="$(command -v uniconverter 2>/dev/null || true)"
 if [ -z "$FOUND" ]; then
-    echo "   Hinweis: $PIPX_BIN ist nicht im PATH – einmal 'pipx ensurepath' ausführen und das Terminal neu öffnen."
+    echo "   Note: $PIPX_BIN is not in your PATH – run 'pipx ensurepath' once and reopen the terminal."
 elif [ "$FOUND" != "$PIPX_BIN/uniconverter" ]; then
-    echo "   Hinweis: 'uniconverter' zeigt derzeit auf $FOUND (ältere Installation?) – ggf. entfernen."
+    echo "   Note: 'uniconverter' currently resolves to $FOUND (older installation?) – remove it if unwanted."
 fi
 
-echo "2/2  Uniconverter.app bauen …"
+echo "2/2  Building Uniconverter.app …"
 VERSION="$("$APP_BIN" --version | awk '{print $2}')"
 APP="$HOME/Applications/Uniconverter.app"
 mkdir -p "$HOME/Applications"
@@ -65,4 +65,4 @@ touch "$APP"
 echo "   → $APP"
 
 echo
-echo "Fertig!   Terminal: uniconverter doctor      App: open ~/Applications/Uniconverter.app"
+echo "Done!   Terminal: uniconverter doctor      App: open ~/Applications/Uniconverter.app"

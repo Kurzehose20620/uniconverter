@@ -1,4 +1,4 @@
-"""Bilder: Bild → Bild (Pillow → sips → ImageMagick) und Bild(er) → PDF (PyMuPDF)."""
+"""Images: image → image (Pillow → sips → ImageMagick) and image(s) → PDF (PyMuPDF)."""
 
 import tempfile
 from pathlib import Path
@@ -19,7 +19,7 @@ def img_to_img(src: Path, dst: Path, opts):
         try:
             im = Image.open(src)
             if de in ("jpg", "jpeg", "bmp") and im.mode not in ("RGB", "L"):
-                # Transparenz auf weißem Hintergrund ablegen
+                # flatten transparency onto a white background
                 im = im.convert("RGBA")
                 bg = Image.new("RGB", im.size, (255, 255, 255))
                 bg.paste(im, mask=im.split()[-1])
@@ -32,24 +32,24 @@ def img_to_img(src: Path, dst: Path, opts):
             im.save(dst, **kwargs)
             return
         except Exception:
-            pass  # weiter zu sips/magick
+            pass  # fall through to sips / ImageMagick
     if de in SIPS_FORMATS:
         cmd = ["sips", "-s", "format", SIPS_FORMATS[de]]
         if SIPS_FORMATS[de] == "jpeg":
             cmd += ["-s", "formatOptions", str(opts.quality)]
         run(cmd + [str(src), "--out", str(dst)])
         return
-    need(tools.MAGICK, f"ImageMagick (für .{de})", "brew install imagemagick")
+    need(tools.MAGICK, f"ImageMagick (for .{de})", "brew install imagemagick")
     run([tools.MAGICK, str(src), "-quality", str(opts.quality), str(dst)])
 
 
 def _img_for_fitz(src: Path, tmpdir: str):
-    """HEIC/WebP/AVIF etc. für PyMuPDF nach PNG normalisieren."""
+    """Normalise HEIC/WebP/AVIF etc. to PNG so PyMuPDF can open it."""
     if ext_of(src) in ("png", "jpg", "jpeg", "bmp", "gif", "tif", "tiff"):
         return src
     out = Path(tmpdir) / (src.stem + ".png")
 
-    class _O:  # minimale Optionen für die Zwischenkonvertierung
+    class _O:  # minimal options for the intermediate conversion
         quality = 95
     img_to_img(src, out, _O)
     return out
@@ -70,5 +70,5 @@ def imgs_to_pdf(sources, dst: Path, opts):
     if len(sources) == 1 and ext_of(sources[0]) in SIPS_FORMATS:
         run(["sips", "-s", "format", "pdf", str(sources[0]), "--out", str(dst)])
         return
-    need(tools.MAGICK, "ImageMagick oder PyMuPDF", "brew install imagemagick")
+    need(tools.MAGICK, "ImageMagick or PyMuPDF", "brew install imagemagick")
     run([tools.MAGICK] + [str(s) for s in sources] + [str(dst)])

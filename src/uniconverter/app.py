@@ -1,12 +1,12 @@
-"""uniconverter App – lokale Drag-&-Drop-Oberfläche in einem eigenen Fenster.
+"""uniconverter app – local drag-and-drop interface in its own window.
 
-Ein kleiner Webserver lauscht nur auf 127.0.0.1; die Oberfläche (app.html)
-läuft in einem nativen WebKit-Fenster (pywebview), kein Browser nötig.
-Dateien werden an den Server übergeben, konvertiert und in Downloads bzw.
-auf dem Schreibtisch abgelegt. Nichts verlässt den Rechner.
+A small web server listens on 127.0.0.1 only; the interface (app.html) runs
+in a native WebKit window (pywebview), no browser needed. Files are handed
+to the server, converted and saved to Downloads or the Desktop. Nothing
+leaves the machine.
 
-`uniconverter-app` öffnet das Fenster; mit dem Fenster endet auch der Server.
-`uniconverter-app --serve` betreibt nur den Server (zum Öffnen im Browser).
+`uniconverter-app` opens the window; the server stops when the window closes.
+`uniconverter-app --serve` runs just the server (to open it in a browser).
 """
 
 import argparse
@@ -32,12 +32,12 @@ PORT_RANGE = range(8756, 8766)
 HTML_FILE = files(__package__).joinpath("app.html")
 ICON_FILE = files(__package__).joinpath("Uniconverter.icns")
 
-UPLOAD_DIR = None     # wird in serve() angelegt
+UPLOAD_DIR = None     # created by make_server()
 UPLOADS = {}          # id -> Path
 UPLOAD_LOCK = threading.Lock()
 UPLOAD_SEQ = [0]
-PRODUCED = set()      # Pfade, die die App erzeugt hat (für "Im Finder zeigen")
-CONVERT_LOCK = threading.Lock()   # LibreOffice & Co. lieber nacheinander
+PRODUCED = set()      # paths the app created (for "show in Finder")
+CONVERT_LOCK = threading.Lock()   # LibreOffice & co. prefer running one at a time
 
 OUTDIRS = {
     "downloads": Path.home() / "Downloads",
@@ -45,22 +45,22 @@ OUTDIRS = {
 }
 
 LABELS = {
-    "jpg": "JPG · Bild", "jpeg": "JPEG · Bild", "png": "PNG · Bild",
-    "webp": "WebP · Bild", "heic": "HEIC · Bild", "tiff": "TIFF · Bild",
-    "tif": "TIFF · Bild", "bmp": "BMP · Bild", "gif": "GIF", "avif": "AVIF · Bild",
-    "ico": "ICO · Icon", "pdf": "PDF", "md": "Markdown", "txt": "Text",
+    "jpg": "JPG · image", "jpeg": "JPEG · image", "png": "PNG · image",
+    "webp": "WebP · image", "heic": "HEIC · image", "tiff": "TIFF · image",
+    "tif": "TIFF · image", "bmp": "BMP · image", "gif": "GIF", "avif": "AVIF · image",
+    "ico": "ICO · icon", "pdf": "PDF", "md": "Markdown", "txt": "Text",
     "html": "HTML", "docx": "DOCX · Word", "doc": "DOC · Word",
-    "odt": "ODT · OpenDocument", "rtf": "RTF", "mp3": "MP3 · Audio",
-    "m4a": "M4A · Audio", "wav": "WAV · Audio", "aiff": "AIFF · Audio",
-    "caf": "CAF · Audio", "flac": "FLAC · Audio", "ogg": "OGG · Audio",
-    "mp4": "MP4 · Video", "mov": "MOV · Video", "mkv": "MKV · Video",
-    "webm": "WebM · Video", "avi": "AVI · Video",
+    "odt": "ODT · OpenDocument", "rtf": "RTF", "mp3": "MP3 · audio",
+    "m4a": "M4A · audio", "wav": "WAV · audio", "aiff": "AIFF · audio",
+    "caf": "CAF · audio", "flac": "FLAC · audio", "ogg": "OGG · audio",
+    "mp4": "MP4 · video", "mov": "MOV · video", "mkv": "MKV · video",
+    "webm": "WebM · video", "avi": "AVI · video",
 }
 
 
 def safe_name(name):
     name = Path(name).name
-    name = re.sub(r'[\\/:*?"<>|\x00-\x1f]', "_", name).strip() or "datei"
+    name = re.sub(r'[\\/:*?"<>|\x00-\x1f]', "_", name).strip() or "file"
     return name
 
 
@@ -86,7 +86,7 @@ def make_opts(payload):
 
 
 def convert_job(src: Path, target: str, outdir: Path, opts):
-    """Eine Datei konvertieren; alle erzeugten Dateien nach outdir verschieben."""
+    """Convert one file; move everything it produced into outdir."""
     with tempfile.TemporaryDirectory(dir=UPLOAD_DIR) as td:
         dst = Path(td) / (Path(src).stem + "." + target)
         core.convert_one(src, dst, opts)
@@ -97,7 +97,7 @@ def convert_job(src: Path, target: str, outdir: Path, opts):
             shutil.move(str(p), str(final))
             PRODUCED.add(str(final))
             moved.append(final.name)
-        # von pdf→md --extract-images angelegte Bildordner mitnehmen
+        # take along image folders created by pdf→md --extract-images
         for d in sorted(p for p in Path(td).iterdir() if p.is_dir()):
             final = unique_path(outdir / d.name)
             shutil.move(str(d), str(final))
@@ -107,7 +107,7 @@ def convert_job(src: Path, target: str, outdir: Path, opts):
 
 def merge_job(sources, outdir: Path, opts):
     with tempfile.TemporaryDirectory(dir=UPLOAD_DIR) as td:
-        name = Path(sources[0]).stem + "-gesamt.pdf" if len(sources) else "gesamt.pdf"
+        name = Path(sources[0]).stem + "-merged.pdf" if len(sources) else "merged.pdf"
         dst = Path(td) / name
         core.merge_to_pdf(sources, dst, opts)
         final = unique_path(outdir / dst.name)
@@ -153,7 +153,7 @@ class Handler(BaseHTTPRequestHandler):
                 "mergeable": mergeable and len(exts) > 1,
             })
         else:
-            self._send(404, {"error": "nicht gefunden"})
+            self._send(404, {"error": "not found"})
 
     # ------------------------------------------------------------ POST
     def do_POST(self):
@@ -168,15 +168,15 @@ class Handler(BaseHTTPRequestHandler):
                 self._send(200, {"ok": True})
                 threading.Thread(target=self.server.shutdown, daemon=True).start()
             else:
-                self._send(404, {"error": "nicht gefunden"})
+                self._send(404, {"error": "not found"})
         except Exception as e:
             self._send(500, {"error": str(e)})
 
     def _upload(self):
         length = int(self.headers.get("Content-Length", 0))
         if length > 2 * 1024 ** 3:
-            return self._send(413, {"error": "Datei größer als 2 GB"})
-        raw_name = urllib.parse.unquote(self.headers.get("X-Filename", "datei"))
+            return self._send(413, {"error": "file larger than 2 GB"})
+        raw_name = urllib.parse.unquote(self.headers.get("X-Filename", "file"))
         name = safe_name(raw_name)
         with UPLOAD_LOCK:
             UPLOAD_SEQ[0] += 1
@@ -204,17 +204,17 @@ class Handler(BaseHTTPRequestHandler):
         opts = make_opts(payload)
         sources = [UPLOADS[i] for i in ids if i in UPLOADS]
         if not sources or not target:
-            return self._send(400, {"error": "keine Dateien oder kein Zielformat"})
+            return self._send(400, {"error": "no files or no target format"})
 
         results = []
         with CONVERT_LOCK:
             if payload.get("merge") and target == "pdf" and len(sources) > 1:
                 try:
                     files_ = merge_job(sources, outdir, opts)
-                    results.append({"name": f"{len(sources)} Dateien",
+                    results.append({"name": f"{len(sources)} files",
                                     "ok": True, "files": files_})
                 except Exception as e:
-                    results.append({"name": f"{len(sources)} Dateien",
+                    results.append({"name": f"{len(sources)} files",
                                     "ok": False, "error": str(e)})
             else:
                 for src in sources:
@@ -236,13 +236,13 @@ class Handler(BaseHTTPRequestHandler):
             subprocess.run(["open", "-R", target])
             self._send(200, {"ok": True})
         else:
-            self._send(403, {"error": "unbekannte Datei"})
+            self._send(403, {"error": "unknown file"})
 
 
 # ---------------------------------------------------------------- Server
 
 def make_server():
-    """Server an den ersten freien Port auf 127.0.0.1 binden und den Upload-Ordner anlegen."""
+    """Bind the server to the first free port on 127.0.0.1 and create the upload folder."""
     global UPLOAD_DIR
     for port in PORT_RANGE:
         try:
@@ -251,7 +251,7 @@ def make_server():
         except OSError:
             continue
     else:
-        sys.exit("Kein freier Port gefunden.")
+        sys.exit("No free port found.")
     UPLOAD_DIR = Path(tempfile.mkdtemp(prefix="uniconverter-app-"))
     return server
 
@@ -262,9 +262,9 @@ def cleanup():
 
 
 def serve():
-    """Nur den Server im Vordergrund betreiben (Browser-Variante, Tests)."""
+    """Run only the server in the foreground (browser variant, tests)."""
     server = make_server()
-    print(f"uniconverter App läuft: http://127.0.0.1:{server.server_address[1]}", flush=True)
+    print(f"uniconverter app running at http://127.0.0.1:{server.server_address[1]}", flush=True)
     try:
         server.serve_forever()
     except KeyboardInterrupt:
@@ -273,13 +273,13 @@ def serve():
         cleanup()
 
 
-# ---------------------------------------------------------------- App-Fenster
+# ---------------------------------------------------------------- App window
 
 def _brand_process():
-    """Prozess als „Uniconverter“ ausweisen: Name in Menüleiste und Dock, Dock-Icon.
+    """Present the process as "Uniconverter": name in menu bar and Dock, Dock icon.
 
-    Aus einem venv gestartet hieße der Prozess sonst „Python“. Das von install.sh
-    gebaute Uniconverter.app bringt Name und Icon selbst mit.
+    Started from a venv the process would otherwise be called "Python". The
+    Uniconverter.app built by install.sh brings name and icon itself.
     """
     try:
         from AppKit import NSApplication, NSBundle, NSImage
@@ -292,12 +292,12 @@ def _brand_process():
 
 
 def run_window():
-    """Server im Hintergrund-Thread, Oberfläche im eigenen Fenster; Fenster zu = Ende."""
+    """Server in a background thread, interface in its own window; closing it ends both."""
     try:
         import webview
     except ImportError:
-        sys.exit("pywebview fehlt – Installation: pipx inject uniconverter pywebview\n"
-                 "Ohne Fenster: uniconverter-app --serve  (dann die URL im Browser öffnen)")
+        sys.exit("pywebview is missing – install with: pipx inject uniconverter pywebview\n"
+                 "Without a window: uniconverter-app --serve  (then open the URL in a browser)")
     server = make_server()
     threading.Thread(target=server.serve_forever, daemon=True).start()
     url = f"http://127.0.0.1:{server.server_address[1]}"
@@ -313,9 +313,9 @@ def run_window():
 def main(argv=None):
     p = argparse.ArgumentParser(
         prog="uniconverter-app",
-        description="Uniconverter als App: Drag-&-Drop-Fenster, lokaler Server nur auf 127.0.0.1.")
+        description="Uniconverter as an app: drag-and-drop window, local server on 127.0.0.1 only.")
     p.add_argument("--serve", action="store_true",
-                   help="kein Fenster, nur den Server im Vordergrund starten (zeigt die URL)")
+                   help="no window, just run the server in the foreground (prints the URL)")
     p.add_argument("--version", action="version", version=f"uniconverter {__version__}")
     args = p.parse_args(argv)
     if args.serve:

@@ -1,4 +1,4 @@
-"""Markdown, HTML und Text: python-markdown, Chrome-Headless-Druck, pandoc/typst, html2text."""
+"""Markdown, HTML and plain text: python-markdown, Chrome headless, pandoc/typst, html2text."""
 
 import html
 import subprocess
@@ -44,7 +44,7 @@ def md_to_html_str(src: Path):
     try:
         import markdown
     except ImportError:
-        raise ConvError(f"python-markdown fehlt – Installation: {pip_hint('markdown')}")
+        raise ConvError(f"python-markdown is missing – install with: {pip_hint('markdown')}")
     body = markdown.markdown(src.read_text(encoding="utf-8"),
                              extensions=["extra", "sane_lists"])
     return HTML_TEMPLATE.format(title=html.escape(src.stem), body=body)
@@ -71,8 +71,8 @@ def chrome_html_to_pdf(html_file: Path, dst: Path):
              "--no-pdf-header-footer",
              f"--print-to-pdf={dst}", html_file.resolve().as_uri()],
             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        # Chrome beendet sich nach dem Druck oft nicht von selbst:
-        # auf die fertige PDF warten (Größe stabil), dann Prozess beenden.
+        # Chrome often does not exit by itself after printing: wait until the
+        # PDF is complete (size stable), then terminate the process.
         deadline = time.time() + 120
         stable_since = None
         last_size = -1
@@ -96,7 +96,7 @@ def chrome_html_to_pdf(html_file: Path, dst: Path):
             except subprocess.TimeoutExpired:
                 proc.kill()
     if not dst.exists() or dst.stat().st_size == 0:
-        raise ConvError("Chrome konnte keine PDF erzeugen")
+        raise ConvError("Chrome did not produce a PDF")
 
 
 def md_to_pdf(src: Path, dst: Path, opts):
@@ -127,7 +127,7 @@ def html_to_md(src: Path, dst: Path, opts):
     try:
         import html2text
     except ImportError:
-        raise ConvError(f"html2text fehlt – Installation: {pip_hint('html2text')}")
+        raise ConvError(f"html2text is missing – install with: {pip_hint('html2text')}")
     h = html2text.HTML2Text()
     h.body_width = 0
     dst.write_text(h.handle(src.read_text(encoding="utf-8")), encoding="utf-8")
