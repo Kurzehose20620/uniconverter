@@ -117,3 +117,23 @@ def test_possible_targets_depend_on_ffmpeg(monkeypatch):
 
 def test_possible_targets_unknown_extension():
     assert router.possible_targets("xyz") == []
+
+
+def test_plan_labels_follow_installed_tools(monkeypatch, opts):
+    monkeypatch.setattr(tools, "PANDOC", None)
+    monkeypatch.setattr(tools, "TYPST", None)
+    assert router.plan(Path("a.md"), Path("a.pdf"), opts())[0] == "Chrome headless"
+    assert router.plan(Path("a.md"), Path("a.docx"), opts())[0] == "python-markdown + textutil"
+    monkeypatch.setattr(tools, "PANDOC", "/usr/bin/pandoc")
+    monkeypatch.setattr(tools, "TYPST", "/usr/bin/typst")
+    assert router.plan(Path("a.md"), Path("a.pdf"), opts())[0] == "pandoc + typst"
+    assert router.plan(Path("a.odt"), Path("a.md"), opts())[0] == "LibreOffice + pandoc"
+
+
+def test_engine_detection_is_lazy_and_overridable(monkeypatch):
+    monkeypatch.setattr(tools, "FFMPEG", "/nowhere/ffmpeg")
+    assert tools.FFMPEG == "/nowhere/ffmpeg"
+    monkeypatch.undo()
+    assert tools.FFMPEG is None or "ffmpeg" in tools.FFMPEG      # back to the real lookup
+    with pytest.raises(AttributeError):
+        tools.NOT_A_TOOL  # noqa: B018

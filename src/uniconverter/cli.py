@@ -10,7 +10,7 @@ from .engines.pdf import default_ocr_languages
 from .engines.tools import pip_hint
 from .errors import ConvError
 from .formats import ext_of
-from .router import convert_one, merge_to_pdf
+from .router import merge_to_pdf, plan
 
 # ---------------------------------------------------------------- Doctor / Formats
 
@@ -138,12 +138,45 @@ def build_parser():
                         "(default: chosen from the installed language data)")
     p.add_argument("-f", "--force", action="store_true",
                    help="overwrite existing output files")
+    p.add_argument("-n", "--dry-run", action="store_true",
+                   help="only show what would be converted and with which engine")
+    p.add_argument("-v", "--verbose", action="store_true",
+                   help="show the engine used and the external commands run")
     p.add_argument("--version", action="version", version=f"uniconverter {__version__}")
     return p
 
 
+def err(msg):
+    print(msg, file=sys.stderr)
+
+
+def usage_error(msg):
+    """Exit code 2: the command line itself is wrong (like argparse)."""
+    err(msg)
+    sys.exit(2)
+
+
+def dry_run(jobs, merge, opts):
+    def label(src, dst):
+        try:
+            return plan(src, dst, opts)[0]
+        except ConvError as e:
+            return f"not possible: {e}"
+
+    if merge:
+        inputs, dst = merge
+        print(f"merge {len(inputs)} files → {dst}  (PyMuPDF)")
+        for src in inputs:
+            note = "as is" if ext_of(src) == "pdf" else label(src, Path("x.pdf"))
+            print(f"  {src.name}  ({note})")
+        return
+    for src, dst in jobs:
+        print(f"{src.name} → {dst}  ({label(src, dst)})")
+
+
 def main(argv=None):
     args = build_parser().parse_args(argv)
+    tools.VERBOSE = args.verbose
 
     if len(args.files) == 1 and args.files[0] in ("doctor", "check"):
         return cmd_doctor()
@@ -164,58 +197,70 @@ def main(argv=None):
         if outdir and outdir.suffix.lower() == ".pdf" and len(inputs) > 1:
             merge = (inputs, outdir)
         else:
-            if outdir:
+            if outdir and not args.dry_run:
                 outdir.mkdir(parents=True, exist_ok=True)
             for src in inputs:
                 dst = (outdir or src.parent) / (src.stem + "." + target)
                 jobs.append((src, dst))
     else:
         if len(files) < 2:
-            sys.exit("Error: output file missing. Example: uniconverter photo.heic photo.jpg")
+            usage_error("Error: output file missing. Example: uniconverter photo.heic photo.jpg")
         *inputs, dst = files
         if dst.exists() and dst in [Path(f) for f in inputs]:
-            sys.exit(f"Error: '{dst}' is both input and output.")
+            usage_error(f"Error: '{dst}' is both input and output.")
         if len(inputs) > 1:
             if ext_of(dst) != "pdf":
-                sys.exit("Error: several inputs need -t EXT (batch) "
-                         "or a .pdf output file (merge).")
+                usage_error("Error: several inputs need -t EXT (batch) "
+                            "or a .pdf output file (merge).")
             merge = (inputs, dst)
         else:
             jobs.append((inputs[0], dst))
 
     for src in (merge[0] if merge else [j[0] for j in jobs]):
         if not src.exists():
-            sys.exit(f"Error: input file not found: {src}")
+            usage_error(f"Error: input file not found: {src}")
+
+    if args.dry_run:
+        return dry_run(jobs, merge, args)
 
     if merge:
         inputs, dst = merge
         if dst.exists() and not args.force:
-            sys.exit(f"Error: '{dst}' already exists (--force to overwrite).")
+            usage_error(f"Error: '{dst}' already exists (--force to overwrite).")
         try:
             merge_to_pdf(inputs, dst, args)
         except ConvError as e:
-            sys.exit(f"✗ merge failed: {e}")
+            err(f"✗ merge failed: {e}")
+            sys.exit(1)
         return
 
-    failed = 0
-    for src, dst in jobs:
+    total, done, failed = len(jobs), 0, 0
+    for i, (src, dst) in enumerate(jobs, 1):
+        prefix = f"[{i}/{total}] " if total > 1 else ""
         if src.resolve() == dst.resolve():
-            print(f"✗ {src.name}: source and target are the same file – skipped")
+            err(f"{prefix}✗ {src.name}: source and target are the same file – skipped")
             failed += 1
             continue
         if dst.exists() and not args.force:
-            print(f"✗ {dst.name} already exists (--force to overwrite)")
+            err(f"{prefix}✗ {dst.name} already exists (--force to overwrite)")
             failed += 1
             continue
         try:
-            convert_one(src, dst, args)
-            print(f"✓ {src.name} → {dst}")
+            label, run_conversion = plan(src, dst, args)
+            run_conversion()
         except ConvError as e:
-            print(f"✗ {src.name}: {e}")
+            err(f"{prefix}✗ {src.name}: {e}")
             failed += 1
+            continue
         except Exception as e:
-            print(f"✗ {src.name}: unexpected error: {e}")
+            err(f"{prefix}✗ {src.name}: unexpected error: {e}")
             failed += 1
+            continue
+        engine = f"  ({label})" if args.verbose else ""
+        print(f"{prefix}✓ {src.name} → {dst}{engine}")
+        done += 1
+    if total > 1:
+        print(f"{done} converted, {failed} failed" if failed else f"{done} converted")
     if failed:
         sys.exit(1)
 

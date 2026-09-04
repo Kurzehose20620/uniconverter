@@ -45,29 +45,56 @@ def test_single_file(fixtures, tmp_path, capsys):
     assert dst.exists() and "✓ pixel.png" in capsys.readouterr().out
 
 
-def test_missing_output_file_is_a_usage_error(fixtures):
-    code = run(str(fixtures / "pixel.png"))
-    assert isinstance(code, str) and "output file missing" in code
+def test_missing_output_file_is_a_usage_error(fixtures, capsys):
+    assert run(str(fixtures / "pixel.png")) == 2
+    assert "output file missing" in capsys.readouterr().err
 
 
-def test_missing_input_file(tmp_path):
-    code = run(str(tmp_path / "nope.png"), str(tmp_path / "nope.jpg"))
-    assert isinstance(code, str) and "not found" in code
+def test_missing_input_file(tmp_path, capsys):
+    assert run(str(tmp_path / "nope.png"), str(tmp_path / "nope.jpg")) == 2
+    assert "not found" in capsys.readouterr().err
 
 
 def test_unsupported_route_exits_1(fixtures, tmp_path, capsys):
     assert run(str(fixtures / "pixel.png"), str(tmp_path / "pixel.mp3")) == 1
-    assert "is not supported" in capsys.readouterr().out
+    captured = capsys.readouterr()
+    assert "is not supported" in captured.err and captured.out == ""
 
 
 def test_existing_target_needs_force(fixtures, tmp_path, capsys):
     dst = tmp_path / "pixel.jpg"
     dst.write_bytes(b"old")
     assert run(str(fixtures / "pixel.png"), str(dst)) == 1
-    assert "already exists" in capsys.readouterr().out
+    assert "already exists" in capsys.readouterr().err
     assert dst.read_bytes() == b"old"
     assert run(str(fixtures / "pixel.png"), str(dst), "--force") == 0
     assert dst.read_bytes() != b"old"
+
+
+def test_dry_run_shows_engine_and_writes_nothing(fixtures, tmp_path, capsys):
+    dst = tmp_path / "pixel.jpg"
+    assert run(str(fixtures / "pixel.png"), str(dst), "--dry-run") == 0
+    out = capsys.readouterr().out
+    assert "pixel.png → " in out and "(Pillow)" in out
+    assert not dst.exists()
+
+
+def test_dry_run_reports_impossible_routes(fixtures, tmp_path, capsys):
+    assert run(str(fixtures / "pixel.png"), str(tmp_path / "pixel.mp3"), "-n") == 0
+    assert "not possible" in capsys.readouterr().out
+
+
+def test_dry_run_merge(fixtures, tmp_path, capsys):
+    dst = tmp_path / "all.pdf"
+    assert run(str(fixtures / "pixel.png"), str(fixtures / "mini.pdf"), str(dst), "-n") == 0
+    out = capsys.readouterr().out
+    assert "merge 2 files" in out and "(PyMuPDF)" in out and "(as is)" in out
+    assert not dst.exists()
+
+
+def test_verbose_names_the_engine(fixtures, tmp_path, capsys):
+    assert run(str(fixtures / "pixel.png"), str(tmp_path / "pixel.jpg"), "-v") == 0
+    assert "(Pillow)" in capsys.readouterr().out
 
 
 def test_batch_with_target_folder(fixtures, tmp_path):
@@ -86,9 +113,10 @@ def test_batch_without_target_folder_writes_next_to_source(fixtures, tmp_path):
     assert (tmp_path / "a.jpg").exists()
 
 
-def test_several_inputs_need_pdf_target_or_batch_flag(fixtures, tmp_path):
-    code = run(str(fixtures / "pixel.png"), str(fixtures / "mini.pdf"), str(tmp_path / "x.png"))
-    assert isinstance(code, str) and "-t EXT" in code
+def test_several_inputs_need_pdf_target_or_batch_flag(fixtures, tmp_path, capsys):
+    args = (str(fixtures / "pixel.png"), str(fixtures / "mini.pdf"), str(tmp_path / "x.png"))
+    assert run(*args) == 2
+    assert "-t EXT" in capsys.readouterr().err
 
 
 def test_merge_to_pdf(fixtures, tmp_path, capsys):
@@ -103,6 +131,16 @@ def test_batch_failures_exit_1_but_continue(fixtures, tmp_path, capsys):
     bad = tmp_path / "bad.png"
     bad.write_bytes(b"not an image")
     assert run(str(bad), str(good), "-t", "jpg") == 1
-    out = capsys.readouterr().out
-    assert "✗ bad.png" in out and "✓ good.png" in out
+    captured = capsys.readouterr()
+    assert "[1/2] ✗ bad.png" in captured.err
+    assert "[2/2] ✓ good.png" in captured.out and "1 converted, 1 failed" in captured.out
     assert (tmp_path / "good.jpg").exists()
+
+
+def test_batch_summary(fixtures, tmp_path, capsys):
+    a, b = tmp_path / "a.png", tmp_path / "b.png"
+    shutil.copy(fixtures / "pixel.png", a)
+    shutil.copy(fixtures / "pixel.png", b)
+    assert run(str(a), str(b), "-t", "jpg") == 0
+    out = capsys.readouterr().out
+    assert "[1/2] ✓ a.png" in out and "[2/2] ✓ b.png" in out and "2 converted" in out
