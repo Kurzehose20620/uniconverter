@@ -16,7 +16,11 @@ if ! command -v pipx >/dev/null 2>&1; then
 fi
 
 echo "1/2  Installing uniconverter (pipx) …"
-pipx install --force $EDITABLE "$DIR"
+# a fresh venv every time: `pipx install --force` does not recreate an existing one
+if pipx list --short 2>/dev/null | grep -q '^uniconverter '; then
+    pipx uninstall uniconverter >/dev/null
+fi
+pipx install $EDITABLE "$DIR"
 
 PIPX_BIN="$(pipx environment --value PIPX_BIN_DIR 2>/dev/null || echo "$HOME/.local/bin")"
 APP_BIN="$PIPX_BIN/uniconverter-app"
