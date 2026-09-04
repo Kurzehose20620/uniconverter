@@ -110,9 +110,11 @@ def chrome_html_to_pdf(html_file: Path, dst: Path):
         raise ConvError("Chrome did not produce a PDF")
 
 
+# pandoc runs with --sandbox (pandoc ≥ 2.15): readers and writers may only read the
+# files named on the command line, so remote images in a document are not fetched.
 def md_to_pdf(src: Path, dst: Path, opts):
     if tools.PANDOC and tools.TYPST:
-        run([tools.PANDOC, str(src), "-o", str(dst), "--pdf-engine=typst"])
+        run([tools.PANDOC, "--sandbox", str(src), "-o", str(dst), "--pdf-engine=typst"])
         return
     with tempfile.TemporaryDirectory() as td:
         tmp_html = Path(td) / (src.stem + ".html")
@@ -122,7 +124,7 @@ def md_to_pdf(src: Path, dst: Path, opts):
 
 def md_to_office(src: Path, dst: Path, opts):
     if tools.PANDOC:
-        run([tools.PANDOC, str(src), "-o", str(dst)])
+        run([tools.PANDOC, "--sandbox", str(src), "-o", str(dst)])
         return
     with tempfile.TemporaryDirectory() as td:
         tmp_html = Path(td) / (src.stem + ".html")

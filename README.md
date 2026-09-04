@@ -153,7 +153,7 @@ app window is WebKit. Everything else is optional and detected automatically:
 
 ```bash
 brew install --cask libreoffice     # Word/Excel/PowerPoint → PDF and images
-brew install pandoc typst           # best Markdown ↔ DOCX/PDF quality (tables!)
+brew install pandoc typst           # best Markdown ↔ DOCX/PDF quality (tables!); pandoc ≥ 2.15
 brew install ffmpeg                 # mp3, flac, ogg, video
 brew install imagemagick            # exotic image formats
 brew install tesseract              # OCR for scanned PDFs (English); tesseract-lang adds the rest
@@ -169,11 +169,15 @@ no update check. The app's server binds to 127.0.0.1, is reachable only from you
 Mac, starts with the window and stops with it. Files handed to the app live in a
 temporary folder that is removed when the window closes.
 
-Markdown, HTML and text → PDF are printed by Chrome. Chrome runs with networking
-disabled for that job (no background services, every host name resolves to nothing),
-so remote images or scripts referenced in a document are not fetched; they appear as
-missing. Installing uniconverter itself downloads Python packages from PyPI, and the
-optional engines come from Homebrew; after that, no conversion needs a connection.
+Documents can reference remote content (an image by URL in Markdown, a linked picture
+in a Word file). uniconverter does not follow such references: Chrome prints with
+networking disabled (every host name resolves to nothing, background services off),
+pandoc runs with `--sandbox`, and mammoth is told not to open external files. Such
+images simply appear as missing. LibreOffice is the one engine where uniconverter
+cannot enforce this; it runs with a throwaway profile, but a document with linked
+external content may make LibreOffice try to load it. Installing uniconverter itself
+downloads Python packages from PyPI, and the optional engines come from Homebrew;
+after that, no conversion needs a connection.
 
 Anything running on your Mac can reach 127.0.0.1, including a web page open in your
 browser. That is why every session gets a random token: the window passes it with each

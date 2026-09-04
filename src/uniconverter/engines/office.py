@@ -43,7 +43,7 @@ def docx_to_md(src: Path, dst: Path, opts):
         with tempfile.TemporaryDirectory() as td:
             return docx_to_md(office_to_docx(src, td), dst, opts)
     if tools.PANDOC:
-        run([tools.PANDOC, str(src), "-t", "gfm", "-o", str(dst),
+        run([tools.PANDOC, "--sandbox", str(src), "-t", "gfm", "-o", str(dst),
              "--extract-media", str(dst.parent / f"{dst.stem}_media")])
         return
     try:
@@ -52,7 +52,9 @@ def docx_to_md(src: Path, dst: Path, opts):
         raise ConvError("this needs pandoc or mammoth – "
                         f"brew install pandoc  (or: {pip_hint('mammoth')})")
     with open(src, "rb") as f:
-        result = mammoth.convert_to_markdown(f)
+        # external_file_access=False is mammoth's default; stated here because it is
+        # what keeps linked (not embedded) images from being fetched over the network
+        result = mammoth.convert_to_markdown(f, external_file_access=False)
     dst.write_text(result.value, encoding="utf-8")
 
 
