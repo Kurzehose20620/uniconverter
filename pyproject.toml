@@ -59,3 +59,5 @@ select = ["E", "F", "W", "I"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+addopts = "-p no:cacheprovider"
+filterwarnings = ["ignore:builtin type .* has no __module__ attribute:DeprecationWarning"]
