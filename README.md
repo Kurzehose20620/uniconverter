@@ -1,5 +1,7 @@
 # uniconverter
 
+[![CI](https://github.com/Kurzehose20620/uniconverter/actions/workflows/ci.yml/badge.svg)](https://github.com/Kurzehose20620/uniconverter/actions/workflows/ci.yml)
+
 Convert images, documents, PDFs, audio and video **entirely on your Mac**. One command
 for every format, the right engine picked automatically, nothing uploaded anywhere.
 
@@ -176,8 +178,12 @@ temporary folder that is removed when the window closes.
 
 ```bash
 ./install.sh --editable                 # or, in a venv:  pip install -e ".[dev]"
-ruff check src/
+ruff check src tests
+pytest                                  # routes that need LibreOffice, ffmpeg, Chrome or
+                                        # Tesseract are skipped when the tool is missing
 ```
+
+CI runs lint and tests on macOS with Python 3.12, 3.13 and 3.14.
 
 Layout: `src/uniconverter/cli.py` (command line), `app.py` + `app.html` (the app),
 `router.py` (chooses the engine for a source/target pair), `engines/` (`images`, `pdf`,

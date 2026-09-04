@@ -23,4 +23,6 @@ All notable changes to this project are documented here. The format follows
   pywebview, no browser needed) backed by a server on 127.0.0.1 only; `install.sh`
   packages it as `Uniconverter.app`. `--serve` runs just the server for a browser.
 - Packaging with `pyproject.toml`; installable with `pipx install .`.
+- Test suite (routing table, real conversions on tiny fixtures, CLI, app server) and
+  GitHub Actions CI on macOS with Python 3.12–3.14.
 - MIT license.
