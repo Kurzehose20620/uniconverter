@@ -27,7 +27,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 from . import __version__
-from . import cli as core
+from . import router as core
 
 APP_VERSION = __version__
 PORT_RANGE = range(8756, 8766)
