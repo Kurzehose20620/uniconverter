@@ -10,8 +10,10 @@ leaves the machine.
 """
 
 import argparse
+import atexit
 import json
 import re
+import secrets
 import shutil
 import subprocess
 import sys
@@ -33,6 +35,7 @@ HTML_FILE = files(__package__).joinpath("app.html")
 ICON_FILE = files(__package__).joinpath("Uniconverter.icns")
 
 UPLOAD_DIR = None     # created by make_server()
+TOKEN = None          # per-session secret; every request except /ping must carry it
 UPLOADS = {}          # id -> Path
 UPLOAD_LOCK = threading.Lock()
 UPLOAD_SEQ = [0]
@@ -125,8 +128,24 @@ class Handler(BaseHTTPRequestHandler):
         self.send_response(code)
         self.send_header("Content-Type", ctype)
         self.send_header("Content-Length", str(len(data)))
+        self.send_header("Cache-Control", "no-store")
         self.end_headers()
         self.wfile.write(data)
+
+    def _authorized(self, token):
+        """Right token, and if a browser sent an Origin it must be our own address.
+
+        Anything on this machine can reach 127.0.0.1, including web pages in a
+        browser (CSRF). The token is only known to the window that loaded the
+        interface, and a cross-site request cannot set the X-Token header.
+        """
+        if not token or token != TOKEN:
+            return False
+        origin = self.headers.get("Origin")
+        return not origin or origin == f"http://127.0.0.1:{self.server.server_address[1]}"
+
+    def _forbidden(self):
+        self._send(403, {"error": "forbidden"})
 
     def _json_body(self):
         length = int(self.headers.get("Content-Length", 0))
@@ -135,12 +154,17 @@ class Handler(BaseHTTPRequestHandler):
     # ------------------------------------------------------------ GET
     def do_GET(self):
         url = urllib.parse.urlparse(self.path)
-        if url.path == "/":
-            self._send(200, HTML_FILE.read_bytes(), "text/html; charset=utf-8")
-        elif url.path == "/ping":
+        qs = urllib.parse.parse_qs(url.query)
+        if url.path == "/ping":
             self._send(200, {"app": "uniconverter", "version": APP_VERSION})
+        elif url.path == "/":
+            if not self._authorized(qs.get("token", [""])[0]):
+                return self._forbidden()
+            html = HTML_FILE.read_text(encoding="utf-8").replace("__TOKEN__", TOKEN)
+            self._send(200, html.encode(), "text/html; charset=utf-8")
+        elif not self._authorized(self.headers.get("X-Token")):
+            self._forbidden()
         elif url.path == "/targets":
-            qs = urllib.parse.parse_qs(url.query)
             exts = [e.lower().lstrip(".") for e in
                     qs.get("exts", [""])[0].split(",") if e]
             sets = [set(core.possible_targets(e)) for e in exts]
@@ -157,6 +181,8 @@ class Handler(BaseHTTPRequestHandler):
 
     # ------------------------------------------------------------ POST
     def do_POST(self):
+        if not self._authorized(self.headers.get("X-Token")):
+            return self._forbidden()
         try:
             if self.path == "/upload":
                 self._upload()
@@ -242,8 +268,8 @@ class Handler(BaseHTTPRequestHandler):
 # ---------------------------------------------------------------- Server
 
 def make_server():
-    """Bind the server to the first free port on 127.0.0.1 and create the upload folder."""
-    global UPLOAD_DIR
+    """Bind the server to the first free port on 127.0.0.1, create the upload folder and token."""
+    global UPLOAD_DIR, TOKEN
     for port in PORT_RANGE:
         try:
             server = ThreadingHTTPServer(("127.0.0.1", port), Handler)
@@ -253,7 +279,13 @@ def make_server():
     else:
         sys.exit("No free port found.")
     UPLOAD_DIR = Path(tempfile.mkdtemp(prefix="uniconverter-app-"))
+    TOKEN = secrets.token_urlsafe(24)
+    atexit.register(cleanup)
     return server
+
+
+def app_url(server):
+    return f"http://127.0.0.1:{server.server_address[1]}/?token={TOKEN}"
 
 
 def cleanup():
@@ -266,7 +298,7 @@ def cleanup():
 def serve():
     """Run only the server in the foreground (browser variant, tests)."""
     server = make_server()
-    print(f"uniconverter app running at http://127.0.0.1:{server.server_address[1]}", flush=True)
+    print(f"uniconverter app running at {app_url(server)}", flush=True)
     try:
         server.serve_forever()
     except KeyboardInterrupt:
@@ -302,9 +334,8 @@ def run_window():
                  "Without a window: uniconverter-app --serve  (then open the URL in a browser)")
     server = make_server()
     threading.Thread(target=server.serve_forever, daemon=True).start()
-    url = f"http://127.0.0.1:{server.server_address[1]}"
     _brand_process()
-    webview.create_window(APP_NAME, url, width=640, height=760, min_size=(520, 600))
+    webview.create_window(APP_NAME, app_url(server), width=640, height=760, min_size=(520, 600))
     try:
         webview.start()
     finally:

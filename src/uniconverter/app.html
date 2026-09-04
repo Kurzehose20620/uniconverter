@@ -148,6 +148,7 @@
 </main>
 
 <script>
+const AUTH = { 'X-Token': '__TOKEN__' };   // filled in by the server per session
 const drop = document.getElementById('drop');
 const picker = document.getElementById('picker');
 const filecard = document.getElementById('filecard');
@@ -225,7 +226,7 @@ async function refreshTargets() {
   const exts = [...new Set(files.map(f => extOf(f.name)))];
   let data;
   try {
-    const r = await fetch('/targets?exts=' + encodeURIComponent(exts.join(',')));
+    const r = await fetch('/targets?exts=' + encodeURIComponent(exts.join(',')), { headers: AUTH });
     data = await r.json();
   } catch {
     statusEl.textContent = 'No connection to the app – please reopen Uniconverter.';
@@ -274,7 +275,7 @@ go.addEventListener('click', async () => {
       statusEl.textContent = `Sending file ${i + 1} of ${files.length} …`;
       const r = await fetch('/upload', {
         method: 'POST',
-        headers: { 'X-Filename': encodeURIComponent(files[i].name) },
+        headers: { ...AUTH, 'X-Filename': encodeURIComponent(files[i].name) },
         body: files[i],
       });
       if (!r.ok) throw new Error((await r.json()).error || 'upload failed');
@@ -283,7 +284,7 @@ go.addEventListener('click', async () => {
     statusEl.textContent = 'Converting …';
     const r = await fetch('/convert', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { ...AUTH, 'Content-Type': 'application/json' },
       body: JSON.stringify({
         ids, target: targetSel.value, outdir: outdir.value,
         quality: +quality.value, dpi: +dpi.value,
@@ -328,7 +329,7 @@ function renderResults(data) {
       btn.className = 'linkbtn'; btn.textContent = 'Show in Finder';
       btn.addEventListener('click', () => fetch('/reveal', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { ...AUTH, 'Content-Type': 'application/json' },
         body: JSON.stringify({ file: res.files[0], outdir: outdir.value }),
       }));
       li.appendChild(btn);

@@ -19,19 +19,54 @@ def server():
     app.cleanup()
 
 
-def get(url):
-    with urllib.request.urlopen(url, timeout=5) as r:
-        return r.status, r.headers.get("Content-Type", ""), r.read()
+def get(url, token=True, origin=None):
+    headers = {"X-Token": app.TOKEN} if token else {}
+    if origin:
+        headers["Origin"] = origin
+    req = urllib.request.Request(url, headers=headers)
+    with urllib.request.urlopen(req, timeout=5) as r:
+        return r.status, r.headers, r.read()
 
 
-def test_index_serves_the_interface(server):
-    status, ctype, body = get(server + "/")
-    assert status == 200 and ctype.startswith("text/html")
+def status_of(url, **kw):
+    try:
+        return get(url, **kw)[0]
+    except urllib.error.HTTPError as e:
+        return e.code
+
+
+def test_index_serves_the_interface_with_the_token(server):
+    status, headers, body = get(server + "/?token=" + app.TOKEN, token=False)
+    assert status == 200 and headers["Content-Type"].startswith("text/html")
     assert b"<title>Uniconverter</title>" in body
+    assert app.TOKEN.encode() in body and b"__TOKEN__" not in body
+    assert headers["Cache-Control"] == "no-store"
+
+
+def test_index_without_token_is_forbidden(server):
+    assert status_of(server + "/", token=False) == 403
+    assert status_of(server + "/?token=wrong", token=False) == 403
+
+
+def test_api_needs_the_token(server):
+    assert status_of(server + "/targets?exts=png", token=False) == 403
+    assert status_of(server + "/targets?exts=png") == 200
+
+
+def test_foreign_origin_is_rejected(server):
+    assert status_of(server + "/targets?exts=png", origin="http://evil.example") == 403
+    assert status_of(server + "/targets?exts=png", origin=server) == 200
+
+
+def test_post_without_token_is_forbidden(server):
+    req = urllib.request.Request(server + "/shutdown", data=b"", method="POST")
+    with pytest.raises(urllib.error.HTTPError) as e:
+        urllib.request.urlopen(req, timeout=5)
+    assert e.value.code == 403
 
 
 def test_ping_reports_version(server):
-    _, _, body = get(server + "/ping")
+    _, _, body = get(server + "/ping", token=False)     # the only endpoint without token
     assert json.loads(body) == {"app": "uniconverter", "version": app.APP_VERSION}
 
 
@@ -53,7 +88,8 @@ def test_targets_intersection_and_merge(server):
 def test_upload_stores_file_with_safe_name(server, fixtures):
     data = (fixtures / "pixel.png").read_bytes()
     req = urllib.request.Request(server + "/upload", data=data, method="POST",
-                                 headers={"X-Filename": "../evil/pixel.png"})
+                                 headers={"X-Filename": "../evil/pixel.png",
+                                          "X-Token": app.TOKEN})
     with urllib.request.urlopen(req, timeout=5) as r:
         info = json.load(r)
     assert info["name"] == "pixel.png"
@@ -65,6 +101,18 @@ def test_unknown_paths_are_404(server):
     with pytest.raises(urllib.error.HTTPError) as e:
         get(server + "/nope")
     assert e.value.code == 404
+
+
+def test_tokens_differ_per_server():
+    first = app.make_server()
+    t1 = app.TOKEN
+    first.server_close()
+    app.cleanup()
+    second = app.make_server()
+    t2 = app.TOKEN
+    second.server_close()
+    app.cleanup()
+    assert t1 != t2 and len(t1) >= 32
 
 
 def test_convert_job_moves_results_to_outdir(fixtures, tmp_path):
