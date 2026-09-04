@@ -1,31 +1,39 @@
-#!/usr/bin/env python3
 """uniconv App – lokale Drag-&-Drop-Oberfläche für uniconv.
 
 Kleiner Webserver, der nur auf 127.0.0.1 lauscht. Dateien werden per
 Drag & Drop an die Seite übergeben, konvertiert und in Downloads bzw. auf
 dem Schreibtisch abgelegt. Nichts verlässt den Rechner.
+
+`uniconv-app` sucht einen laufenden Server (oder startet einen im
+Hintergrund) und öffnet das App-Fenster. `uniconv-app --serve` startet
+den Server im Vordergrund.
 """
 
+import argparse
 import json
+import os
 import re
 import shutil
 import subprocess
 import sys
 import tempfile
 import threading
+import time
 import urllib.parse
+import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from importlib.resources import files
 from pathlib import Path
 from types import SimpleNamespace
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
-import uniconv  # noqa: E402
+from . import __version__
+from . import cli as core
 
-APP_VERSION = "1"
+APP_VERSION = __version__
 PORT_RANGE = range(8756, 8766)
-HTML_FILE = Path(__file__).resolve().parent / "app.html"
+HTML_FILE = files(__package__).joinpath("app.html")
 
-UPLOAD_DIR = Path(tempfile.mkdtemp(prefix="uniconv-app-"))
+UPLOAD_DIR = None     # wird in serve() angelegt
 UPLOADS = {}          # id -> Path
 UPLOAD_LOCK = threading.Lock()
 UPLOAD_SEQ = [0]
@@ -81,7 +89,7 @@ def convert_job(src: Path, target: str, outdir: Path, opts):
     """Eine Datei konvertieren; alle erzeugten Dateien nach outdir verschieben."""
     with tempfile.TemporaryDirectory(dir=UPLOAD_DIR) as td:
         dst = Path(td) / (Path(src).stem + "." + target)
-        uniconv.convert_one(src, dst, opts)
+        core.convert_one(src, dst, opts)
         produced = sorted(p for p in Path(td).iterdir() if p.is_file())
         moved = []
         for p in produced:
@@ -101,7 +109,7 @@ def merge_job(sources, outdir: Path, opts):
     with tempfile.TemporaryDirectory(dir=UPLOAD_DIR) as td:
         name = Path(sources[0]).stem + "-gesamt.pdf" if len(sources) else "gesamt.pdf"
         dst = Path(td) / name
-        uniconv.merge_to_pdf(sources, dst, opts)
+        core.merge_to_pdf(sources, dst, opts)
         final = unique_path(outdir / dst.name)
         shutil.move(str(dst), str(final))
         PRODUCED.add(str(final))
@@ -135,10 +143,10 @@ class Handler(BaseHTTPRequestHandler):
             qs = urllib.parse.parse_qs(url.query)
             exts = [e.lower().lstrip(".") for e in
                     qs.get("exts", [""])[0].split(",") if e]
-            sets = [set(uniconv.possible_targets(e)) for e in exts]
+            sets = [set(core.possible_targets(e)) for e in exts]
             common = sorted(set.intersection(*sets)) if sets else []
             mergeable = bool(exts) and all(
-                e == "pdf" or "pdf" in uniconv.possible_targets(e) for e in exts)
+                e == "pdf" or "pdf" in core.possible_targets(e) for e in exts)
             self._send(200, {
                 "targets": [{"ext": t, "label": LABELS.get(t, t.upper())}
                             for t in common],
@@ -202,18 +210,18 @@ class Handler(BaseHTTPRequestHandler):
         with CONVERT_LOCK:
             if payload.get("merge") and target == "pdf" and len(sources) > 1:
                 try:
-                    files = merge_job(sources, outdir, opts)
+                    files_ = merge_job(sources, outdir, opts)
                     results.append({"name": f"{len(sources)} Dateien",
-                                    "ok": True, "files": files})
+                                    "ok": True, "files": files_})
                 except Exception as e:
                     results.append({"name": f"{len(sources)} Dateien",
                                     "ok": False, "error": str(e)})
             else:
                 for src in sources:
                     try:
-                        files = convert_job(src, target, outdir, opts)
+                        files_ = convert_job(src, target, outdir, opts)
                         results.append({"name": src.name, "ok": True,
-                                        "files": files})
+                                        "files": files_})
                     except Exception as e:
                         results.append({"name": src.name, "ok": False,
                                         "error": str(e)})
@@ -231,7 +239,11 @@ class Handler(BaseHTTPRequestHandler):
             self._send(403, {"error": "unbekannte Datei"})
 
 
-def main():
+# ---------------------------------------------------------------- Server
+
+def serve():
+    """Server im Vordergrund starten (bis /shutdown oder Ctrl-C)."""
+    global UPLOAD_DIR
     for port in PORT_RANGE:
         try:
             server = ThreadingHTTPServer(("127.0.0.1", port), Handler)
@@ -240,11 +252,82 @@ def main():
             continue
     else:
         sys.exit("Kein freier Port gefunden.")
+    UPLOAD_DIR = Path(tempfile.mkdtemp(prefix="uniconv-app-"))
     print(f"uniconv App läuft: http://127.0.0.1:{server.server_address[1]}")
     try:
         server.serve_forever()
+    except KeyboardInterrupt:
+        pass
     finally:
         shutil.rmtree(UPLOAD_DIR, ignore_errors=True)
+
+
+# ---------------------------------------------------------------- Launcher
+
+def _ping(port, timeout=1.0):
+    try:
+        with urllib.request.urlopen(f"http://127.0.0.1:{port}/ping", timeout=timeout) as r:
+            return json.load(r)
+    except (OSError, ValueError):
+        return None
+
+
+def _post(port, path, timeout=2.0):
+    req = urllib.request.Request(f"http://127.0.0.1:{port}{path}", data=b"", method="POST")
+    try:
+        urllib.request.urlopen(req, timeout=timeout).close()
+    except OSError:
+        pass
+
+
+def find_server():
+    """Port eines laufenden Servers dieser Version; veraltete Server werden beendet."""
+    for port in PORT_RANGE:
+        info = _ping(port)
+        if not info or info.get("app") != "uniconv":
+            continue
+        if info.get("version") == APP_VERSION:
+            return port
+        _post(port, "/shutdown")   # alte Version läuft noch – beenden, damit die neue startet
+    return None
+
+
+def ensure_server():
+    """Laufenden Server finden oder einen im Hintergrund starten; liefert den Port."""
+    port = find_server()
+    if port:
+        return port
+    subprocess.Popen([sys.executable, "-m", "uniconv.app", "--serve"],
+                     stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+                     stderr=subprocess.DEVNULL, start_new_session=True)
+    for _ in range(40):
+        time.sleep(0.25)
+        port = find_server()
+        if port:
+            return port
+    return None
+
+
+def open_window(url):
+    if os.path.isdir("/Applications/Google Chrome.app"):
+        subprocess.run(["open", "-na", "Google Chrome", "--args", f"--app={url}"])
+    else:
+        subprocess.run(["open", url])
+
+
+def main(argv=None):
+    p = argparse.ArgumentParser(
+        prog="uniconv-app",
+        description="Startet die uniconv App (lokaler Server auf 127.0.0.1 + App-Fenster).")
+    p.add_argument("--serve", action="store_true",
+                   help="nur den Server im Vordergrund starten, kein Fenster öffnen")
+    args = p.parse_args(argv)
+    if args.serve:
+        return serve()
+    port = ensure_server()
+    if port is None:
+        sys.exit("uniconv App konnte nicht gestartet werden.")
+    open_window(f"http://127.0.0.1:{port}")
 
 
 if __name__ == "__main__":

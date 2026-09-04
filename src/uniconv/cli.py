@@ -9,7 +9,6 @@ Chrome (Headless-PDF-Druck) und Python-Bibliotheken (PyMuPDF, Pillow, …).
 import argparse
 import html
 import os
-import re
 import shutil
 import subprocess
 import sys
@@ -118,6 +117,11 @@ def need(condition, was, install_hint):
         raise ConvError(f"dafür wird {was} benötigt – Installation: {install_hint}")
 
 
+def pip_hint(pkg):
+    """Installationshinweis für ein fehlendes Python-Paket (uniconv läuft im pipx-venv)."""
+    return f"pipx inject uniconv {pkg}"
+
+
 def ext_of(p: Path):
     return p.suffix.lower().lstrip(".")
 
@@ -189,7 +193,7 @@ def imgs_to_pdf(sources, dst: Path, opts):
 
 def pdf_to_images(src: Path, dst: Path, opts):
     fitz = _fitz()
-    need(fitz, "PyMuPDF", f"{VENV_PIP} install pymupdf")
+    need(fitz, "PyMuPDF", pip_hint("pymupdf"))
     doc = fitz.open(str(src))
     zoom = opts.dpi / 72.0
     mat = fitz.Matrix(zoom, zoom)
@@ -221,7 +225,7 @@ def pdf_to_md(src: Path, dst: Path, opts):
     try:
         import pymupdf4llm
     except ImportError:
-        raise ConvError(f"pymupdf4llm fehlt – Installation: {VENV_PIP} install pymupdf4llm")
+        raise ConvError(f"pymupdf4llm fehlt – Installation: {pip_hint('pymupdf4llm')}")
     kwargs = {}
     if opts.extract_images:
         img_dir = dst.parent / f"{dst.stem}_bilder"
@@ -232,7 +236,7 @@ def pdf_to_md(src: Path, dst: Path, opts):
 
 def pdf_to_txt(src: Path, dst: Path, opts):
     fitz = _fitz()
-    need(fitz, "PyMuPDF", f"{VENV_PIP} install pymupdf")
+    need(fitz, "PyMuPDF", pip_hint("pymupdf"))
     doc = fitz.open(str(src))
     text = "\n\n".join(page.get_text() for page in doc)
     dst.write_text(text, encoding="utf-8")
@@ -243,7 +247,7 @@ def pdf_to_docx(src: Path, dst: Path, opts):
         from pdf2docx import Converter
     except ImportError:
         raise ConvError("pdf2docx fehlt (optional, ~100 MB) – "
-                        f"Installation: {VENV_PIP} install pdf2docx")
+                        f"Installation: {pip_hint('pdf2docx')}")
     cv = Converter(str(src))
     cv.convert(str(dst))
     cv.close()
@@ -291,7 +295,7 @@ def docx_to_md(src: Path, dst: Path, opts):
         import mammoth
     except ImportError:
         raise ConvError("dafür wird pandoc oder mammoth benötigt – "
-                        f"brew install pandoc  (oder: {VENV_PIP} install mammoth)")
+                        f"brew install pandoc  (oder: {pip_hint('mammoth')})")
     with open(src, "rb") as f:
         result = mammoth.convert_to_markdown(f)
     dst.write_text(result.value, encoding="utf-8")
@@ -338,7 +342,7 @@ def md_to_html_str(src: Path):
     try:
         import markdown
     except ImportError:
-        raise ConvError(f"python-markdown fehlt – Installation: {VENV_PIP} install markdown")
+        raise ConvError(f"python-markdown fehlt – Installation: {pip_hint('markdown')}")
     body = markdown.markdown(src.read_text(encoding="utf-8"),
                              extensions=["extra", "sane_lists"])
     return HTML_TEMPLATE.format(title=html.escape(src.stem), body=body)
@@ -349,8 +353,9 @@ def md_to_html(src: Path, dst: Path, opts):
 
 
 def txt_to_html_str(src: Path):
-    body = "<pre style='white-space: pre-wrap; font-family: SF Mono, Menlo, monospace; font-size: 10pt;'>" \
-           + html.escape(src.read_text(encoding="utf-8")) + "</pre>"
+    style = "white-space: pre-wrap; font-family: SF Mono, Menlo, monospace; font-size: 10pt;"
+    body = (f"<pre style='{style}'>"
+            + html.escape(src.read_text(encoding="utf-8")) + "</pre>")
     return HTML_TEMPLATE.format(title=html.escape(src.stem), body=body)
 
 
@@ -421,7 +426,7 @@ def html_to_md(src: Path, dst: Path, opts):
     try:
         import html2text
     except ImportError:
-        raise ConvError(f"html2text fehlt – Installation: {VENV_PIP} install html2text")
+        raise ConvError(f"html2text fehlt – Installation: {pip_hint('html2text')}")
     h = html2text.HTML2Text()
     h.body_width = 0
     dst.write_text(h.handle(src.read_text(encoding="utf-8")), encoding="utf-8")
@@ -556,7 +561,7 @@ def to_pdf_temp(src: Path, tmpdir: str, opts):
 
 def merge_to_pdf(sources, dst: Path, opts):
     fitz = _fitz()
-    need(fitz, "PyMuPDF", f"{VENV_PIP} install pymupdf")
+    need(fitz, "PyMuPDF", pip_hint("pymupdf"))
     out = fitz.open()
     with tempfile.TemporaryDirectory() as td:
         for s in sources:
@@ -597,7 +602,6 @@ def possible_targets(se):
 
 # ---------------------------------------------------------------- Doctor / Formats
 
-VENV_PIP = str(Path(__file__).resolve().parent / ".venv" / "bin" / "pip")
 
 
 def cmd_doctor():
@@ -613,42 +617,42 @@ def cmd_doctor():
     row(True, "textutil", "Word/RTF/HTML/TXT untereinander")
     row(True, "afconvert", "Audio-Basisformate (wav, m4a, aiff)")
 
-    print("\nPython-Bibliotheken (im uniconv-venv):")
+    print("\nPython-Bibliotheken:")
     row(_fitz() is not None, "pymupdf", "PDF → Bilder, Bilder → PDF, PDF-Merge",
-        f"{VENV_PIP} install pymupdf")
+        pip_hint("pymupdf"))
     try:
         import pymupdf4llm  # noqa: F401
         ok4llm = True
     except ImportError:
         ok4llm = False
-    row(ok4llm, "pymupdf4llm", "PDF → Markdown", f"{VENV_PIP} install pymupdf4llm")
+    row(ok4llm, "pymupdf4llm", "PDF → Markdown", pip_hint("pymupdf4llm"))
     row(_pil() is not None, "pillow", "Bildkonvertierung (webp, ico, …)",
-        f"{VENV_PIP} install pillow pillow-heif")
+        pip_hint("pillow pillow-heif"))
     try:
         import markdown  # noqa: F401
         okmd = True
     except ImportError:
         okmd = False
-    row(okmd, "markdown", "Markdown → HTML/PDF/DOCX", f"{VENV_PIP} install markdown")
+    row(okmd, "markdown", "Markdown → HTML/PDF/DOCX", pip_hint("markdown"))
     try:
         import mammoth  # noqa: F401
         okmam = True
     except ImportError:
         okmam = False
-    row(okmam, "mammoth", "DOCX → Markdown (ohne pandoc)", f"{VENV_PIP} install mammoth")
+    row(okmam, "mammoth", "DOCX → Markdown (ohne pandoc)", pip_hint("mammoth"))
     try:
         import html2text  # noqa: F401
         okh2t = True
     except ImportError:
         okh2t = False
-    row(okh2t, "html2text", "HTML → Markdown", f"{VENV_PIP} install html2text")
+    row(okh2t, "html2text", "HTML → Markdown", pip_hint("html2text"))
     try:
         import pdf2docx  # noqa: F401
         okp2d = True
     except ImportError:
         okp2d = False
     row(okp2d, "pdf2docx", "PDF → DOCX (optional, ~100 MB)",
-        f"{VENV_PIP} install pdf2docx")
+        pip_hint("pdf2docx"))
 
     print("\nProgramme:")
     row(bool(SOFFICE), "LibreOffice", "Word/Excel/PowerPoint → PDF",
@@ -715,13 +719,17 @@ def build_parser():
   uniconv formats                         alle unterstützten Wege""",
         formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("files", nargs="*", help="Eingabedatei(en), optional gefolgt von der Zieldatei")
-    p.add_argument("-t", "--to", metavar="EXT", help="Zielformat für Stapelverarbeitung (z.B. jpg)")
-    p.add_argument("-o", "--out", metavar="PFAD", help="Zielordner (Stapel) oder Zieldatei (PDF-Merge)")
-    p.add_argument("-q", "--quality", type=int, default=90, help="JPEG/WebP-Qualität 1–100 (Standard 90)")
+    p.add_argument("-t", "--to", metavar="EXT",
+                   help="Zielformat für Stapelverarbeitung (z.B. jpg)")
+    p.add_argument("-o", "--out", metavar="PFAD",
+                   help="Zielordner (Stapel) oder Zieldatei (PDF-Merge)")
+    p.add_argument("-q", "--quality", type=int, default=90,
+                   help="JPEG/WebP-Qualität 1–100 (Standard 90)")
     p.add_argument("--dpi", type=int, default=150, help="Auflösung für PDF → Bild (Standard 150)")
     p.add_argument("--extract-images", action="store_true",
                    help="bei PDF → md: Bilder mit extrahieren")
-    p.add_argument("-f", "--force", action="store_true", help="vorhandene Zieldateien überschreiben")
+    p.add_argument("-f", "--force", action="store_true",
+                   help="vorhandene Zieldateien überschreiben")
     return p
 
 
