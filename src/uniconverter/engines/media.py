@@ -2,6 +2,7 @@
 
 from pathlib import Path
 
+from ..errors import ConvError
 from ..formats import AUDIO_EXT, ext_of
 from . import tools
 from .tools import need, run
@@ -21,7 +22,15 @@ def audio_to_audio(src: Path, dst: Path, opts):
         return
     de = ext_of(dst)
     if de in AFCONVERT_MAP:
-        run(["afconvert"] + AFCONVERT_MAP[de] + [str(src), str(dst)])
+        args = AFCONVERT_MAP[de]
+        try:
+            run(["afconvert"] + args + [str(src), str(dst)])
+        except ConvError:
+            if "-b" not in args:
+                raise
+            # the fixed AAC bitrate is too high for low sample rates (voice memos etc.)
+            i = args.index("-b")
+            run(["afconvert"] + args[:i] + args[i + 2:] + [str(src), str(dst)])
         return
     need(False, f"ffmpeg (for .{de} output)", "brew install ffmpeg")
 

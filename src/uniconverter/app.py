@@ -257,8 +257,10 @@ def make_server():
 
 
 def cleanup():
+    global UPLOAD_DIR
     if UPLOAD_DIR:
         shutil.rmtree(UPLOAD_DIR, ignore_errors=True)
+    UPLOAD_DIR = None
 
 
 def serve():
