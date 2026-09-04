@@ -34,6 +34,8 @@ First public release.
   rejects foreign origins and sends `Cache-Control: no-store`, so other local processes
   or web pages cannot use it. Upload folder is also removed via `atexit`.
 - External programs are detected on first use instead of at import time.
+- Chrome prints Markdown/HTML to PDF with networking disabled, so remote images or
+  scripts in a document are never fetched.
 - Page images from PDF → png/jpg never overwrite existing numbered files without `--force`.
 - Test suite (routing table, real conversions on tiny fixtures, CLI, app server) and
   GitHub Actions CI on macOS with Python 3.12–3.14.

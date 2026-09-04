@@ -98,6 +98,17 @@ def test_md_to_pdf_via_chrome(fixtures, tmp_path, opts):
     assert pdf_pages(out) == 1
 
 
+@pytest.mark.skipif(not tools.CHROME, reason="no Chrome/Chromium for headless printing")
+def test_md_to_pdf_does_not_fetch_remote_content(tmp_path, opts):
+    """Remote images/scripts in a document are not loaded: Chrome runs with DNS disabled."""
+    src = tmp_path / "remote.md"
+    src.write_text("# Offline\n\n![remote](https://example.com/does-not-load.png)\n"
+                   "<script src=\"https://example.com/x.js\"></script>\n\nStill printed.\n")
+    out = convert(src, tmp_path / "remote.pdf", opts)
+    text = "".join(page.get_text() for page in tools.load_fitz().open(str(out)))
+    assert "Still printed" in text
+
+
 @pytest.mark.skipif(not shutil.which("textutil"), reason="textutil is macOS only")
 def test_txt_to_docx_via_textutil(fixtures, tmp_path, opts):
     src = tmp_path / "hello.txt"

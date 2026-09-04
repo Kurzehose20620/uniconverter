@@ -169,6 +169,12 @@ no update check. The app's server binds to 127.0.0.1, is reachable only from you
 Mac, starts with the window and stops with it. Files handed to the app live in a
 temporary folder that is removed when the window closes.
 
+Markdown, HTML and text → PDF are printed by Chrome. Chrome runs with networking
+disabled for that job (no background services, every host name resolves to nothing),
+so remote images or scripts referenced in a document are not fetched; they appear as
+missing. Installing uniconverter itself downloads Python packages from PyPI, and the
+optional engines come from Homebrew; after that, no conversion needs a connection.
+
 Anything running on your Mac can reach 127.0.0.1, including a web page open in your
 browser. That is why every session gets a random token: the window passes it with each
 request, requests without it (or from a foreign origin) are refused, and responses are
@@ -182,6 +188,7 @@ marked `no-store`. The server is not a general local API, it is private to the w
 - Creating mp3 needs ffmpeg; macOS can only read mp3.
 - LibreOffice conversions can fail while LibreOffice is open. Close it and retry.
 - OCR output depends on the scan; expect the occasional misread character.
+- Remote images in Markdown/HTML are not loaded when printing to PDF (by design, see Privacy).
 - macOS only. Linux fallbacks (ImageMagick instead of sips, pandoc instead of textutil)
   are on the list.
 

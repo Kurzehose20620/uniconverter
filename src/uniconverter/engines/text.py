@@ -61,14 +61,25 @@ def txt_to_html_str(src: Path):
     return HTML_TEMPLATE.format(title=html.escape(src.stem), body=body)
 
 
+# Chrome must not talk to the network while printing: no background services,
+# and every host name resolves to nothing, so remote images or scripts in a
+# document are simply not loaded. Local file:// content is unaffected.
+CHROME_OFFLINE_FLAGS = [
+    "--host-resolver-rules=MAP * ~NOTFOUND",
+    "--disable-background-networking", "--disable-component-update",
+    "--disable-sync", "--disable-default-apps", "--no-pings",
+    "--metrics-recording-only", "--safebrowsing-disable-auto-update",
+]
+
+
 def chrome_html_to_pdf(html_file: Path, dst: Path):
-    need(tools.CHROME, "Chrome (Headless-PDF-Druck)", "brew install --cask google-chrome")
+    need(tools.CHROME, "Chrome (headless PDF printing)", "brew install --cask google-chrome")
     with tempfile.TemporaryDirectory() as td:
         proc = subprocess.Popen(
             [tools.CHROME, "--headless", "--disable-gpu", "--no-first-run",
              "--no-default-browser-check", "--disable-extensions",
              "--hide-scrollbars", f"--user-data-dir={td}/chrome-profile",
-             "--no-pdf-header-footer",
+             "--no-pdf-header-footer", *CHROME_OFFLINE_FLAGS,
              f"--print-to-pdf={dst}", html_file.resolve().as_uri()],
             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         # Chrome often does not exit by itself after printing: wait until the
