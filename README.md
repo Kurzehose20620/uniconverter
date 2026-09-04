@@ -61,6 +61,12 @@ uniconverter formats                   every supported route
 | `--extract-images` | PDF → Markdown: also save the images next to it |
 | `--ocr-lang deu+eng` | OCR languages for scanned PDFs (default: your system language + English) |
 | `-f`, `--force` | overwrite existing files |
+| `-n`, `--dry-run` | show what would be converted and with which engine, change nothing |
+| `-v`, `--verbose` | name the engine for each file and echo external commands |
+
+Exit codes: 0 everything converted, 1 at least one conversion failed, 2 the command line
+was wrong (missing file, no route, existing target without `--force`). Errors go to stderr,
+so `uniconverter *.heic -t jpg 2> errors.log` keeps the terminal clean.
 
 ## The app
 
@@ -162,6 +168,11 @@ Nothing leaves your machine. uniconverter contains no network code, no telemetry
 no update check. The app's server binds to 127.0.0.1, is reachable only from your own
 Mac, starts with the window and stops with it. Files handed to the app live in a
 temporary folder that is removed when the window closes.
+
+Anything running on your Mac can reach 127.0.0.1, including a web page open in your
+browser. That is why every session gets a random token: the window passes it with each
+request, requests without it (or from a foreign origin) are refused, and responses are
+marked `no-store`. The server is not a general local API, it is private to the window.
 
 ## Known limitations
 

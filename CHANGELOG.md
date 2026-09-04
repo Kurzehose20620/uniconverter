@@ -23,6 +23,14 @@ All notable changes to this project are documented here. The format follows
   pywebview, no browser needed) backed by a server on 127.0.0.1 only; `install.sh`
   packages it as `Uniconverter.app`. `--serve` runs just the server for a browser.
 - Packaging with `pyproject.toml`; installable with `pipx install .`.
+- `--dry-run` shows the planned conversions and their engines; `--verbose` names the
+  engine per file and echoes external commands; batches show `[n/N]` progress and a
+  summary line. Exit codes: 0 ok, 1 conversion failed, 2 usage error; errors on stderr.
+- The app server requires a per-session token on every request except `/ping`,
+  rejects foreign origins and sends `Cache-Control: no-store`, so other local processes
+  or web pages cannot use it. Upload folder is also removed via `atexit`.
+- External programs are detected on first use instead of at import time.
+- Page images from PDF → png/jpg never overwrite existing numbered files without `--force`.
 - Test suite (routing table, real conversions on tiny fixtures, CLI, app server) and
   GitHub Actions CI on macOS with Python 3.12–3.14.
 - MIT license.
