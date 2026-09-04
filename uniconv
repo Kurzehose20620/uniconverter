@@ -1,0 +1,20 @@
+#!/bin/bash
+# uniconv – Startskript: sorgt für die Python-Umgebung und ruft uniconv.py auf.
+set -euo pipefail
+
+SOURCE="${BASH_SOURCE[0]}"
+while [ -L "$SOURCE" ]; do SOURCE="$(readlink "$SOURCE")"; done
+DIR="$(cd "$(dirname "$SOURCE")" && pwd)"
+
+VENV="$DIR/.venv"
+DEPS=(pymupdf pymupdf4llm pillow pillow-heif markdown mammoth html2text)
+
+if [ ! -x "$VENV/bin/python" ]; then
+    echo "Richte uniconv ein (einmalig, dauert kurz) …" >&2
+    python3 -m venv "$VENV"
+    "$VENV/bin/pip" install --quiet --upgrade pip
+    "$VENV/bin/pip" install --quiet "${DEPS[@]}" \
+        || echo "Hinweis: nicht alle Python-Pakete konnten installiert werden – 'uniconv doctor' zeigt Details." >&2
+fi
+
+exec "$VENV/bin/python" "$DIR/uniconv.py" "$@"

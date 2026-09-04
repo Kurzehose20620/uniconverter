@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Uniconv</title>
+<style>
+  :root {
+    --bg: #f2f3f7; --card: #ffffff; --text: #1a1c22; --muted: #6b7080;
+    --line: #e2e4ec; --accent: #0b5fff; --accent-text: #ffffff;
+    --drop: #fafbfe; --drop-hover: #eef3ff; --ok: #1d9d55; --err: #d5372c;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #16171c; --card: #212329; --text: #ecedf2; --muted: #9a9fae;
+      --line: #34363f; --accent: #4c8dff; --accent-text: #0d1117;
+      --drop: #1b1d23; --drop-hover: #22293a; --ok: #37c273; --err: #ff6b5e;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font-family: -apple-system, "Helvetica Neue", Arial, sans-serif;
+    font-size: 15px; line-height: 1.5;
+    display: flex; justify-content: center; min-height: 100vh;
+  }
+  main { width: min(560px, 94vw); padding: 28px 0 40px; }
+  header { display: flex; align-items: baseline; gap: 10px; margin-bottom: 18px; }
+  h1 { font-size: 24px; margin: 0; letter-spacing: -.02em; }
+  .badge {
+    font-size: 12px; color: var(--muted); border: 1px solid var(--line);
+    border-radius: 999px; padding: 2px 10px;
+  }
+  .card {
+    background: var(--card); border: 1px solid var(--line);
+    border-radius: 14px; padding: 16px; margin-bottom: 14px;
+  }
+  #drop {
+    border: 2px dashed var(--line); border-radius: 14px; background: var(--drop);
+    padding: 34px 16px; text-align: center; cursor: pointer;
+    transition: background .15s, border-color .15s; margin-bottom: 14px;
+  }
+  #drop.hover { background: var(--drop-hover); border-color: var(--accent); }
+  #drop .big { font-size: 34px; }
+  #drop p { margin: 6px 0 0; color: var(--muted); }
+  #drop strong { color: var(--text); }
+  ul { list-style: none; margin: 0; padding: 0; }
+  .file {
+    display: flex; align-items: center; gap: 10px;
+    padding: 7px 2px; border-bottom: 1px solid var(--line);
+  }
+  .file:last-child { border-bottom: none; }
+  .file .name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .file .size { color: var(--muted); font-size: 13px; }
+  .file button {
+    border: none; background: none; color: var(--muted); font-size: 15px;
+    cursor: pointer; padding: 2px 6px; border-radius: 6px;
+  }
+  .file button:hover { color: var(--err); background: var(--drop-hover); }
+  .row { display: flex; align-items: center; gap: 10px; margin: 10px 0; flex-wrap: wrap; }
+  .row label { color: var(--muted); font-size: 13px; min-width: 92px; }
+  select, input[type=range] { accent-color: var(--accent); }
+  select {
+    flex: 1; font: inherit; color: var(--text); background: var(--drop);
+    border: 1px solid var(--line); border-radius: 9px; padding: 7px 10px;
+  }
+  .check { display: flex; align-items: center; gap: 8px; font-size: 14px; }
+  #go {
+    width: 100%; font: inherit; font-weight: 600; font-size: 16px;
+    background: var(--accent); color: var(--accent-text); border: none;
+    border-radius: 11px; padding: 12px; cursor: pointer; margin-top: 4px;
+  }
+  #go:disabled { opacity: .45; cursor: default; }
+  .result { display: flex; align-items: flex-start; gap: 9px; padding: 7px 2px; }
+  .result .mark { font-weight: 700; }
+  .result.ok .mark { color: var(--ok); }
+  .result.err .mark { color: var(--err); }
+  .result .detail { flex: 1; }
+  .result .files { color: var(--muted); font-size: 13px; }
+  .result .errmsg { color: var(--err); font-size: 13px; }
+  .linkbtn {
+    border: 1px solid var(--line); background: none; color: var(--accent);
+    font: inherit; font-size: 13px; border-radius: 8px; padding: 3px 10px; cursor: pointer;
+  }
+  .linkbtn:hover { background: var(--drop-hover); }
+  #status { color: var(--muted); font-size: 13px; margin-top: 8px; min-height: 1.2em; }
+  footer { color: var(--muted); font-size: 12px; text-align: center; margin-top: 18px; }
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Uniconv</h1>
+    <span class="badge">100&nbsp;% lokal – nichts wird hochgeladen</span>
+  </header>
+
+  <div id="drop">
+    <div class="big">📥</div>
+    <p><strong>Dateien hierher ziehen</strong> oder klicken zum Auswählen</p>
+    <p>Bilder · Word · PDF · Markdown · Audio · Video</p>
+    <input id="picker" type="file" multiple class="hidden">
+  </div>
+
+  <div class="card hidden" id="filecard">
+    <ul id="filelist"></ul>
+  </div>
+
+  <div class="card hidden" id="optioncard">
+    <div class="row">
+      <label for="target">Zielformat</label>
+      <select id="target"></select>
+    </div>
+    <div class="row hidden" id="qualrow">
+      <label for="quality">Qualität <span id="qualval">90</span></label>
+      <input type="range" id="quality" min="40" max="100" value="90" style="flex:1">
+    </div>
+    <div class="row hidden" id="dpirow">
+      <label for="dpi">Auflösung</label>
+      <select id="dpi">
+        <option value="100">100 dpi – klein</option>
+        <option value="150" selected>150 dpi – normal</option>
+        <option value="220">220 dpi – fein</option>
+        <option value="300">300 dpi – Druck</option>
+      </select>
+    </div>
+    <div class="row hidden" id="mergerow">
+      <label class="check" style="min-width:0">
+        <input type="checkbox" id="merge"> Alle zu <strong>einer</strong> PDF zusammenfügen
+      </label>
+    </div>
+    <div class="row">
+      <label for="outdir">Speichern in</label>
+      <select id="outdir">
+        <option value="downloads" selected>Downloads</option>
+        <option value="desktop">Schreibtisch</option>
+      </select>
+    </div>
+    <button id="go">Konvertieren</button>
+    <div id="status"></div>
+  </div>
+
+  <div class="card hidden" id="resultcard">
+    <ul id="results"></ul>
+  </div>
+
+  <footer>läuft nur auf deinem Mac (127.0.0.1) · Terminal-Variante: <code>uniconv</code></footer>
+</main>
+
+<script>
+const drop = document.getElementById('drop');
+const picker = document.getElementById('picker');
+const filecard = document.getElementById('filecard');
+const filelist = document.getElementById('filelist');
+const optioncard = document.getElementById('optioncard');
+const targetSel = document.getElementById('target');
+const qualrow = document.getElementById('qualrow');
+const quality = document.getElementById('quality');
+const qualval = document.getElementById('qualval');
+const dpirow = document.getElementById('dpirow');
+const dpi = document.getElementById('dpi');
+const mergerow = document.getElementById('mergerow');
+const merge = document.getElementById('merge');
+const outdir = document.getElementById('outdir');
+const go = document.getElementById('go');
+const statusEl = document.getElementById('status');
+const resultcard = document.getElementById('resultcard');
+const results = document.getElementById('results');
+
+let files = [];
+
+const IMG_QUALITY_TARGETS = new Set(['jpg', 'jpeg', 'webp', 'heic', 'avif']);
+const PAGE_SOURCES = new Set(['pdf', 'docx', 'doc', 'odt', 'rtf', 'pptx', 'ppt', 'xlsx', 'xls']);
+const IMG_TARGETS = new Set(['png', 'jpg', 'jpeg', 'webp', 'tiff', 'bmp']);
+
+const extOf = n => (n.includes('.') ? n.split('.').pop().toLowerCase() : '');
+const fmtSize = b => b > 1048576 ? (b / 1048576).toFixed(1) + ' MB'
+                   : b > 1024 ? Math.round(b / 1024) + ' KB' : b + ' B';
+
+drop.addEventListener('click', () => picker.click());
+picker.addEventListener('change', () => { addFiles(picker.files); picker.value = ''; });
+['dragover', 'dragenter'].forEach(ev => drop.addEventListener(ev, e => {
+  e.preventDefault(); drop.classList.add('hover');
+}));
+['dragleave', 'drop'].forEach(ev => drop.addEventListener(ev, e => {
+  e.preventDefault(); drop.classList.remove('hover');
+}));
+drop.addEventListener('drop', e => addFiles(e.dataTransfer.files));
+
+function addFiles(list) {
+  for (const f of list) {
+    if (!files.some(x => x.name === f.name && x.size === f.size)) files.push(f);
+  }
+  renderFiles();
+  refreshTargets();
+}
+
+function removeFile(i) {
+  files.splice(i, 1);
+  renderFiles();
+  refreshTargets();
+}
+
+function renderFiles() {
+  filelist.innerHTML = '';
+  files.forEach((f, i) => {
+    const li = document.createElement('li');
+    li.className = 'file';
+    const name = document.createElement('span');
+    name.className = 'name'; name.textContent = f.name;
+    const size = document.createElement('span');
+    size.className = 'size'; size.textContent = fmtSize(f.size);
+    const rm = document.createElement('button');
+    rm.textContent = '✕'; rm.title = 'entfernen';
+    rm.addEventListener('click', () => removeFile(i));
+    li.append(name, size, rm);
+    filelist.appendChild(li);
+  });
+  filecard.classList.toggle('hidden', files.length === 0);
+  optioncard.classList.toggle('hidden', files.length === 0);
+}
+
+async function refreshTargets() {
+  if (files.length === 0) return;
+  const exts = [...new Set(files.map(f => extOf(f.name)))];
+  let data;
+  try {
+    const r = await fetch('/targets?exts=' + encodeURIComponent(exts.join(',')));
+    data = await r.json();
+  } catch {
+    statusEl.textContent = 'Keine Verbindung zur App – bitte Uniconv neu öffnen.';
+    return;
+  }
+  const prev = targetSel.value;
+  targetSel.innerHTML = '';
+  if (data.targets.length === 0) {
+    const o = document.createElement('option');
+    o.textContent = 'keine gemeinsame Konvertierung möglich';
+    o.value = ''; targetSel.appendChild(o);
+    go.disabled = true;
+  } else {
+    for (const t of data.targets) {
+      const o = document.createElement('option');
+      o.value = t.ext; o.textContent = t.label;
+      targetSel.appendChild(o);
+    }
+    targetSel.value = data.targets.some(t => t.ext === prev) ? prev
+                    : (data.targets.some(t => t.ext === 'pdf') ? 'pdf' : data.targets[0].ext);
+    go.disabled = false;
+  }
+  mergerow.classList.toggle('hidden', !data.mergeable);
+  updateOptionRows();
+}
+
+function updateOptionRows() {
+  const t = targetSel.value;
+  qualrow.classList.toggle('hidden', !IMG_QUALITY_TARGETS.has(t));
+  const pagey = files.some(f => PAGE_SOURCES.has(extOf(f.name)));
+  dpirow.classList.toggle('hidden', !(pagey && IMG_TARGETS.has(t)));
+  mergerow.querySelector('label').style.opacity = t === 'pdf' ? 1 : .4;
+  merge.disabled = t !== 'pdf';
+}
+targetSel.addEventListener('change', updateOptionRows);
+quality.addEventListener('input', () => qualval.textContent = quality.value);
+
+go.addEventListener('click', async () => {
+  if (!files.length || !targetSel.value) return;
+  go.disabled = true;
+  results.innerHTML = '';
+  resultcard.classList.add('hidden');
+  try {
+    const ids = [];
+    for (let i = 0; i < files.length; i++) {
+      statusEl.textContent = `Übergebe Datei ${i + 1} von ${files.length} …`;
+      const r = await fetch('/upload', {
+        method: 'POST',
+        headers: { 'X-Filename': encodeURIComponent(files[i].name) },
+        body: files[i],
+      });
+      if (!r.ok) throw new Error((await r.json()).error || 'Übergabe fehlgeschlagen');
+      ids.push((await r.json()).id);
+    }
+    statusEl.textContent = 'Konvertiere …';
+    const r = await fetch('/convert', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ids, target: targetSel.value, outdir: outdir.value,
+        quality: +quality.value, dpi: +dpi.value,
+        merge: merge.checked && !merge.disabled,
+      }),
+    });
+    if (!r.ok) throw new Error((await r.json()).error || 'Konvertierung fehlgeschlagen');
+    const data = await r.json();
+    renderResults(data);
+    statusEl.textContent = '';
+  } catch (e) {
+    statusEl.textContent = '✗ ' + (e.message || 'Keine Verbindung – bitte Uniconv neu öffnen.');
+  }
+  go.disabled = false;
+});
+
+function renderResults(data) {
+  resultcard.classList.remove('hidden');
+  const dirLabel = outdir.value === 'desktop' ? 'Schreibtisch' : 'Downloads';
+  for (const res of data.results) {
+    const li = document.createElement('li');
+    li.className = 'result ' + (res.ok ? 'ok' : 'err');
+    const mark = document.createElement('span');
+    mark.className = 'mark'; mark.textContent = res.ok ? '✓' : '✗';
+    const detail = document.createElement('div');
+    detail.className = 'detail';
+    const head = document.createElement('div');
+    head.textContent = res.name;
+    detail.appendChild(head);
+    const sub = document.createElement('div');
+    if (res.ok) {
+      sub.className = 'files';
+      sub.textContent = `→ ${res.files.join(', ')} (${dirLabel})`;
+    } else {
+      sub.className = 'errmsg';
+      sub.textContent = res.error;
+    }
+    detail.appendChild(sub);
+    li.append(mark, detail);
+    if (res.ok && res.files.length) {
+      const btn = document.createElement('button');
+      btn.className = 'linkbtn'; btn.textContent = 'Zeigen';
+      btn.addEventListener('click', () => fetch('/reveal', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ file: res.files[0], outdir: outdir.value }),
+      }));
+      li.appendChild(btn);
+    }
+    results.appendChild(li);
+  }
+}
+</script>
+</body>
+</html>
