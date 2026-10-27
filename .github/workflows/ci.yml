@@ -12,12 +12,22 @@ jobs:
       fail-fast: false
       matrix:
         python-version: ["3.12", "3.13", "3.14"]
+        include:
+          - python-version: "3.14"
+            engines: true     # one job also runs the ffmpeg/pandoc/typst routes
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
           cache: pip
+      - name: Optional engines (ffmpeg, pandoc, typst)
+        if: matrix.engines
+        run: brew install ffmpeg pandoc typst
+        env:
+          HOMEBREW_NO_AUTO_UPDATE: "1"
+          HOMEBREW_NO_INSTALL_CLEANUP: "1"
+          HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK: "1"
       - name: Install
         run: python -m pip install --upgrade pip && python -m pip install -e ".[dev]"
       - name: Lint
