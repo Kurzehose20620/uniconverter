@@ -27,6 +27,8 @@ from types import SimpleNamespace
 
 from . import __version__
 from . import router as core
+from .engines import images, media
+from .formats import AUDIO_EXT, IMAGE_EXT, VIDEO_ALIASES, VIDEO_EXT, VIDEO_OUT
 
 APP_NAME = "Uniconverter"
 APP_VERSION = __version__
@@ -87,6 +89,28 @@ LABELS = {
     "fbx": "FBX · 3D model", "stl": "STL · 3D print", "ply": "PLY · 3D scan",
     "usdz": "USDZ · 3D (Apple AR)", "usdc": "USDC · 3D (USD)",
 }
+VIDEO_PRESETS = {"1080": 1920, "720": 1280, "480": 854}   # longest side of 16:9 video
+
+
+def kind_of(ext):
+    """What a target produces: image, video, audio or other (decides the size options)."""
+    if ext in IMAGE_EXT:
+        return "image"
+    if ext in VIDEO_OUT or ext in VIDEO_ALIASES:
+        return "video"
+    if ext in AUDIO_EXT or ext == "alac":
+        return "audio"
+    return "other"
+
+
+def targets_for(ext):
+    """Targets offered for one source extension: the router's list, plus the source's
+    own format for images and video, so a file can be made smaller without converting."""
+    t = set(core.possible_targets(ext))
+    if (ext in IMAGE_EXT and ext in images.image_out_formats()) or \
+            (ext in VIDEO_EXT and ext in media.video_out_formats()):
+        t.add(ext)
+    return t
 
 
 def safe_name(name):
@@ -106,12 +130,30 @@ def unique_path(p: Path):
         n += 1
 
 
+def _px(value):
+    """A size limit from the interface: None for "original", else 16–20000 pixels."""
+    try:
+        n = int(value or 0)
+    except (TypeError, ValueError):
+        return None
+    return max(16, min(20000, n)) if n > 0 else None
+
+
 def make_opts(payload):
+    max_side = _px(payload.get("max"))
+    preset = str(payload.get("video_size") or "")
+    if preset in VIDEO_PRESETS:
+        max_side = VIDEO_PRESETS[preset]
     return SimpleNamespace(
         quality=max(1, min(100, int(payload.get("quality", 90)))),
         dpi=max(50, min(600, int(payload.get("dpi", 150)))),
         extract_images=bool(payload.get("extract_images", False)),
         ocr_lang=payload.get("ocr_lang") or None,
+        width=None,
+        height=None,
+        max=max_side,
+        small=bool(payload.get("small", False)),
+        target_size=None,
         force=True,
     )
 
@@ -119,7 +161,8 @@ def make_opts(payload):
 def convert_job(src: Path, target: str, outdir: Path, opts):
     """Convert one file; move everything it produced into outdir."""
     with tempfile.TemporaryDirectory(dir=UPLOAD_DIR) as td:
-        dst = Path(td) / (Path(src).stem + "." + target)
+        same = Path(src).suffix.lower().lstrip(".") == target
+        dst = Path(td) / (Path(src).stem + ("-small" if same else "") + "." + target)
         core.convert_one(src, dst, opts)
         produced = sorted(p for p in Path(td).iterdir() if p.is_file())
         moved = []
@@ -195,12 +238,15 @@ class Handler(BaseHTTPRequestHandler):
         elif url.path == "/targets":
             exts = [e.lower().lstrip(".") for e in
                     qs.get("exts", [""])[0].split(",") if e]
-            sets = [set(core.possible_targets(e)) for e in exts]
+            sets = [targets_for(e) for e in exts]
             common = sorted(set.intersection(*sets)) if sets else []
             mergeable = bool(exts) and all(
                 e == "pdf" or "pdf" in core.possible_targets(e) for e in exts)
+            same = exts[0] if len(set(exts)) == 1 else None
             self._send(200, {
-                "targets": [{"ext": t, "label": LABELS.get(t, t.upper())}
+                "targets": [{"ext": t, "kind": kind_of(t),
+                             "label": LABELS.get(t, t.upper())
+                             + (" (same format)" if t == same else "")}
                             for t in common],
                 "mergeable": mergeable and len(exts) > 1,
             })

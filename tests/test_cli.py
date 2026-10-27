@@ -26,7 +26,7 @@ def test_formats(capsys):
     run("formats")
     out = capsys.readouterr().out
     assert "Supported conversions" in out
-    for family in ("E-books", "Subtitles", "3D", "Xvid-compatible"):
+    for family in ("E-books", "Subtitles", "3D", "--target-size", "Xvid-compatible"):
         assert family in out
 
 
@@ -35,6 +35,14 @@ def test_doctor_lists_the_new_engines(capsys):
     out = capsys.readouterr().out
     for name in ("calibre", "ghostscript", "jpeg-xl", "ffprobe", "Blender"):
         assert name in out
+
+
+def test_help_shows_the_size_options(capsys):
+    with pytest.raises(SystemExit):
+        cli.main(["--help"])
+    out = capsys.readouterr().out
+    for opt in ("--max", "--width", "--height", "--small", "--target-size"):
+        assert opt in out
 
 
 def test_dry_run_shows_the_real_file_for_pseudo_targets(tmp_path, capsys):

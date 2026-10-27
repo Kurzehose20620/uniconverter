@@ -73,8 +73,12 @@ def test_ping_reports_version(server):
 def test_targets_for_one_extension(server):
     _, _, body = get(server + "/targets?exts=png")
     data = json.loads(body)
-    exts = [t["ext"] for t in data["targets"]]
-    assert "jpg" in exts and "pdf" in exts and "png" not in exts
+    targets = {t["ext"]: t for t in data["targets"]}
+    assert "jpg" in targets and "pdf" in targets
+    assert "jpeg" not in targets                   # no alias extensions
+    # the own format is offered too, so a picture can be made smaller
+    assert targets["png"]["label"].endswith("(same format)")
+    assert targets["jpg"]["kind"] == "image" and targets["pdf"]["kind"] == "other"
     assert data["mergeable"] is False              # a single file is not a merge
 
 
@@ -124,9 +128,47 @@ def test_convert_job_moves_results_to_outdir(fixtures, tmp_path):
     assert moved == ["pixel-2.jpg"]                # never overwrites, numbers instead
 
 
+def test_targets_kinds_for_media(server, monkeypatch):
+    from uniconverter.engines import tools
+    if not tools.FFMPEG:
+        pytest.skip("no ffmpeg")
+    _, _, body = get(server + "/targets?exts=mov")
+    targets = {t["ext"]: t["kind"] for t in json.loads(body)["targets"]}
+    assert targets["mp4"] == "video" and targets["mp3"] == "audio" and targets["gif"] == "image"
+    assert targets["mov"] == "video"               # same format: shrink a video
+
+
 def test_make_opts_clamps_values():
     o = app.make_opts({"quality": 500, "dpi": 10, "ocr_lang": ""})
     assert o.quality == 100 and o.dpi == 50 and o.ocr_lang is None and o.force is True
+    assert o.max is None and o.small is False and o.target_size is None
+
+
+def test_make_opts_size_options():
+    assert app.make_opts({"max": 800, "small": True}).max == 800
+    assert app.make_opts({"max": 800}).small is False
+    assert app.make_opts({"max": 3}).max == 16               # clamped
+    assert app.make_opts({"max": "x"}).max is None
+    assert app.make_opts({"video_size": "720"}).max == 1280  # 720p = 1280×720
+    assert app.make_opts({"video_size": "1080"}).max == 1920
+    assert app.make_opts({"video_size": "bogus"}).max is None
+
+
+def test_convert_job_shrinks_into_the_same_format(tmp_path):
+    from PIL import Image
+    src = tmp_path / "photo.jpg"
+    Image.new("RGB", (1200, 800), (200, 30, 30)).save(src)
+    outdir = tmp_path / "out"
+    outdir.mkdir()
+    moved = app.convert_job(src, "jpg", outdir, app.make_opts({"max": 600, "small": True}))
+    assert moved == ["photo-small.jpg"]
+    assert Image.open(outdir / "photo-small.jpg").size == (600, 400)
+
+
+def test_interface_has_the_size_options(server):
+    _, _, body = get(server + "/?token=" + app.TOKEN, token=False)
+    for marker in (b'id="vsize"', b'id="isize"', b'id="small"', b"video_size"):
+        assert marker in body
 
 
 def test_safe_name_strips_paths_and_control_characters():

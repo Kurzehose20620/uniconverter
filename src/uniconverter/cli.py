@@ -5,7 +5,7 @@ import importlib.util
 import sys
 from pathlib import Path
 
-from . import __version__
+from . import __version__, sizing
 from .engines import tools
 from .engines.pdf import default_ocr_languages
 from .engines.tools import pip_hint
@@ -154,7 +154,7 @@ Video    (with ffmpeg) mp4 m4v mov mkv webm avi divx wmv asf flv mpg vob ts m2ts
          · vob = DVD (PAL 720×576, AC3), dv = PAL DV, mpg = MPEG-2 + MP2
          · ogv = Theora + Vorbis (with ffmpeg-full, otherwise VP8 + Opus)
          · 3gp = H.264 + AAC; 3gp-h263 = very old phones: H.263 176×144 + AMR
-           (→ .3gp, 352×288 with a larger size; needs ffmpeg-full)
+           (→ .3gp, --height 288 = 352×288; needs ffmpeg-full)
          · input only: rmvb f4v 3g2 qt mod tod vro m2v mxf
 
 Subtitles srt ↔ vtt ↔ ass ↔ ssa (with ffmpeg)
@@ -162,6 +162,11 @@ Subtitles srt ↔ vtt ↔ ass ↔ ssa (with ffmpeg)
 
 3D       glb gltf obj fbx stl ply usdz usd abc → obj glb gltf fbx stl ply usdz usdc
          (with Blender; textures are copied next to the target or embedded)
+
+Smaller files (images and video, also to the same format):
+    --max 1920 / --width N / --height N   scale down, never up, aspect ratio kept
+    --small                                stronger compression, image metadata removed
+    --target-size 50MB                     video: aim at a file size (two-pass)
 
 Merge several files into ONE PDF:
     uniconverter scan1.png chapter.docx notes.md all.pdf
@@ -182,6 +187,10 @@ def build_parser():
   uniconverter script.md script.pdf          Markdown → PDF
   uniconverter paper.pdf paper.md            PDF → Markdown (OCR for scans)
   uniconverter scan1.png scan2.png doc.pdf   several files → ONE PDF
+  uniconverter photo.jpg small.jpg --max 1600 --small   smaller photo, same format
+  uniconverter *.jpg -t jpg --max 1600 -o ./web/        batch: shrink every photo
+  uniconverter clip.mov clip.mp4 --height 720           video at 720p
+  uniconverter clip.mp4 mail.mp4 --target-size 25MB     video aimed at 25 MB
   uniconverter film.mkv film.avi             Xvid AVI for older standalone players
   uniconverter film.mkv film.srt             pull the subtitles out of a video
   uniconverter book.epub book.azw3           e-book for Kindle (calibre)
@@ -199,6 +208,19 @@ def build_parser():
                    help="JPEG/WebP quality 1–100 (default 90)")
     p.add_argument("--dpi", type=int, default=150,
                    help="resolution for PDF/SVG/EPS → image (default 150)")
+    size = p.add_argument_group("smaller files (images and video)")
+    size.add_argument("--max", type=pixels, metavar="N",
+                      help="scale down so the longest side is at most N pixels")
+    size.add_argument("--width", type=pixels, metavar="N",
+                      help="scale down to at most N pixels wide")
+    size.add_argument("--height", type=pixels, metavar="N",
+                      help="scale down to at most N pixels high (e.g. 720; avi/3gp/rm "
+                           "stay ≤ 480, 3gp-h263: 288 = CIF)")
+    size.add_argument("--small", action="store_true",
+                      help="compress harder: lower image quality and video/audio bitrates, "
+                           "no image metadata")
+    size.add_argument("--target-size", type=file_size, metavar="SIZE",
+                      help="video: aim at this file size, e.g. 50MB (two-pass encoding)")
     p.add_argument("--extract-images", action="store_true",
                    help="PDF → md: also extract the images")
     p.add_argument("--ocr-lang", metavar="LANG", default=None,
@@ -212,6 +234,23 @@ def build_parser():
                    help="show the engine used and the external commands run")
     p.add_argument("--version", action="version", version=f"uniconverter {__version__}")
     return p
+
+
+def pixels(text):
+    try:
+        n = int(text)
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"not a number of pixels: {text!r}")
+    if n < 16:
+        raise argparse.ArgumentTypeError("at least 16 pixels")
+    return n
+
+
+def file_size(text):
+    try:
+        return sizing.parse_size(text)
+    except ValueError as e:
+        raise argparse.ArgumentTypeError(str(e))
 
 
 def err(msg):
@@ -269,6 +308,9 @@ def main(argv=None):
                 outdir.mkdir(parents=True, exist_ok=True)
             for src in inputs:
                 dst = (outdir or src.parent) / (src.stem + "." + target)
+                if sizing.shrinking(args) and dst.resolve() == src.resolve():
+                    # shrinking into the same format and folder: never replace the source
+                    dst = dst.with_name(f"{src.stem}-small.{target}")
                 jobs.append((src, dst))
     else:
         if len(files) < 2:

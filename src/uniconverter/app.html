@@ -124,6 +124,31 @@
         <option value="300">300 dpi – print</option>
       </select>
     </div>
+    <div class="row hidden" id="vsizerow">
+      <label for="vsize">Size</label>
+      <select id="vsize">
+        <option value="" selected>Original</option>
+        <option value="1080">1080p (Full HD)</option>
+        <option value="720">720p (HD)</option>
+        <option value="480">480p (SD)</option>
+      </select>
+    </div>
+    <div class="row hidden" id="isizerow">
+      <label for="isize">Size</label>
+      <select id="isize">
+        <option value="" selected>Original</option>
+        <option value="3840">longest side 3840 px</option>
+        <option value="2560">longest side 2560 px</option>
+        <option value="1920">longest side 1920 px</option>
+        <option value="1280">longest side 1280 px</option>
+        <option value="800">longest side 800 px</option>
+      </select>
+    </div>
+    <div class="row hidden" id="smallrow">
+      <label class="check" style="min-width:0">
+        <input type="checkbox" id="small"> Smaller file (stronger compression)
+      </label>
+    </div>
     <div class="row hidden" id="mergerow">
       <label class="check" style="min-width:0">
         <input type="checkbox" id="merge"> Merge everything into <strong>one</strong> PDF
@@ -160,6 +185,12 @@ const quality = document.getElementById('quality');
 const qualval = document.getElementById('qualval');
 const dpirow = document.getElementById('dpirow');
 const dpi = document.getElementById('dpi');
+const vsizerow = document.getElementById('vsizerow');
+const vsize = document.getElementById('vsize');
+const isizerow = document.getElementById('isizerow');
+const isize = document.getElementById('isize');
+const smallrow = document.getElementById('smallrow');
+const small = document.getElementById('small');
 const mergerow = document.getElementById('mergerow');
 const merge = document.getElementById('merge');
 const outdir = document.getElementById('outdir');
@@ -169,6 +200,7 @@ const resultcard = document.getElementById('resultcard');
 const results = document.getElementById('results');
 
 let files = [];
+let kinds = {};   // target extension → image / video / audio / other
 
 const IMG_QUALITY_TARGETS = new Set(['jpg', 'jpeg', 'webp', 'heic', 'avif']);
 const PAGE_SOURCES = new Set(['pdf', 'docx', 'doc', 'odt', 'rtf', 'pptx', 'ppt', 'xlsx', 'xls']);
@@ -234,6 +266,7 @@ async function refreshTargets() {
   }
   const prev = targetSel.value;
   targetSel.innerHTML = '';
+  kinds = {};
   if (data.targets.length === 0) {
     const o = document.createElement('option');
     o.textContent = 'no target format shared by all files';
@@ -241,6 +274,7 @@ async function refreshTargets() {
     go.disabled = true;
   } else {
     for (const t of data.targets) {
+      kinds[t.ext] = t.kind;
       const o = document.createElement('option');
       o.value = t.ext; o.textContent = t.label;
       targetSel.appendChild(o);
@@ -255,7 +289,11 @@ async function refreshTargets() {
 
 function updateOptionRows() {
   const t = targetSel.value;
+  const kind = kinds[t] || 'other';
   qualrow.classList.toggle('hidden', !IMG_QUALITY_TARGETS.has(t));
+  vsizerow.classList.toggle('hidden', kind !== 'video');
+  isizerow.classList.toggle('hidden', kind !== 'image');
+  smallrow.classList.toggle('hidden', !['image', 'video', 'audio'].includes(kind));
   const pagey = files.some(f => PAGE_SOURCES.has(extOf(f.name)));
   dpirow.classList.toggle('hidden', !(pagey && IMG_TARGETS.has(t)));
   mergerow.querySelector('label').style.opacity = t === 'pdf' ? 1 : .4;
@@ -289,6 +327,9 @@ go.addEventListener('click', async () => {
         ids, target: targetSel.value, outdir: outdir.value,
         quality: +quality.value, dpi: +dpi.value,
         merge: merge.checked && !merge.disabled,
+        max: kinds[targetSel.value] === 'image' ? +isize.value || 0 : 0,
+        video_size: kinds[targetSel.value] === 'video' ? vsize.value : '',
+        small: small.checked && !smallrow.classList.contains('hidden'),
       }),
     });
     if (!r.ok) throw new Error((await r.json()).error || 'conversion failed');
