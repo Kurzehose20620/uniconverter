@@ -5,12 +5,12 @@ build-backend = "hatchling.build"
 [project]
 name = "uniconverter"
 dynamic = ["version"]
-description = "Local file converter for macOS: images, PDF, Office, Markdown, audio and video. Nothing leaves your machine."
+description = "Local file converter for macOS: images, PDF, Office, Markdown, e-books, audio, video and subtitles. Nothing leaves your machine."
 readme = "README.md"
 license = { file = "LICENSE" }
 requires-python = ">=3.12"
 authors = [{ name = "Leon Brzosa" }]
-keywords = ["macos", "file-conversion", "converter", "pdf", "heic", "markdown", "privacy", "cli"]
+keywords = ["macos", "file-conversion", "converter", "pdf", "heic", "markdown", "ebook", "ffmpeg", "privacy", "cli"]
 classifiers = [
   "Development Status :: 5 - Production/Stable",
   "Environment :: Console",
