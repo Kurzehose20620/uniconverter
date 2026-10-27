@@ -8,11 +8,42 @@ import importlib.util
 import tempfile
 from pathlib import Path
 
-from .engines import images, media, office, pdf, text, tools
-from .engines.media import AFCONVERT_MAP
+from .engines import (
+    documents,
+    ebooks,
+    images,
+    media,
+    models,
+    office,
+    pdf,
+    subtitles,
+    text,
+    tools,
+)
 from .engines.tools import need, pip_hint
 from .errors import ConvError
-from .formats import AUDIO_EXT, HTML_EXT, IMAGE_EXT, MD_EXT, OFFICE_EXT, VIDEO_EXT, ext_of
+from .formats import (
+    AUDIO_EXT,
+    EBOOK_EXT,
+    HIDDEN_ALIASES,
+    HTML_EXT,
+    IMAGE_EXT,
+    IMAGE_OUT,
+    IMAGE_RAW_EXT,
+    IMAGE_VECTOR_IN,
+    MD_EXT,
+    MODEL_EXT,
+    MODEL_OUT,
+    OFFICE_EXT,
+    OUT_ALIASES,
+    PANDOC_ONLY_EXT,
+    SUB_EXT,
+    VIDEO_ALIASES,
+    VIDEO_EXT,
+    VIDEO_OUT,
+    VIDEO_SUB_SRC,
+    ext_of,
+)
 
 TEXTUTIL_SOURCES = ("docx", "doc", "odt", "rtf")
 
@@ -25,19 +56,58 @@ def _via_temp(src, dst, opts, mid_ext, first, second):
         return second(tmp, dst, opts)
 
 
+def output_path(src: Path, dst: Path):
+    """The file really written: pseudo targets such as .alac end up as .m4a."""
+    de = ext_of(dst)
+    if de not in OUT_ALIASES:
+        return dst
+    p = dst.with_suffix("." + OUT_ALIASES[de])
+    if p.resolve() == src.resolve():
+        p = p.with_name(f"{p.stem}-{de}{p.suffix}")
+    return p
+
+
+def _image_label(se, de):
+    reader = ("PyMuPDF" if se == "svg" else "Ghostscript" if se in IMAGE_VECTOR_IN
+              else "sips" if se in IMAGE_RAW_EXT | {"jxl", "exr", "pict", "pct"} else "")
+    writer = ("cjxl" if de == "jxl" and tools.CJXL else "sips" if de in ("exr", "psd")
+              else "ImageMagick" if de in ("hdr", "dpx", "xpm", "jxl") else "Pillow")
+    return f"{reader} + {writer}" if reader else writer
+
+
 def plan(src: Path, dst: Path, opts):
     """(engine label, thunk) for src → dst, or ConvError if there is no route."""
     se, de = ext_of(src), ext_of(dst)
 
-    if se in IMAGE_EXT and de in IMAGE_EXT:
-        return "Pillow", lambda: images.img_to_img(src, dst, opts)
+    if de in OUT_ALIASES:                    # .alac → .m4a, .3gp-h263 → .3gp
+        real = output_path(src, dst)
+        if de in VIDEO_ALIASES and se in VIDEO_EXT:
+            return "ffmpeg", lambda: media.video_convert(src, real, opts, fmt=de)
+        if de not in VIDEO_ALIASES and se in AUDIO_EXT | VIDEO_EXT:
+            return "ffmpeg", lambda: media.audio_to_audio(src, real, opts, fmt=de)
+
+    if se in IMAGE_EXT and de in images.image_out_formats():
+        return _image_label(se, de), lambda: images.img_to_img(src, dst, opts)
     if se in IMAGE_EXT and de == "pdf":
-        return "PyMuPDF", lambda: images.imgs_to_pdf([src], dst, opts)
-    if se == "gif" and de in VIDEO_EXT:
+        label = "Ghostscript" if se in IMAGE_VECTOR_IN and tools.GS else "PyMuPDF"
+        return label, lambda: images.imgs_to_pdf([src], dst, opts)
+    if se == "gif" and de in VIDEO_OUT:
         return "ffmpeg", lambda: media.video_convert(src, dst, opts)
 
+    if se in EBOOK_EXT and de in ebooks.ebook_targets(se):
+        return (ebooks.from_ebook_route(se, de),
+                lambda: ebooks.from_ebook(src, dst, opts))
+    if de in ebooks.doc_ebook_targets(se):
+        return ebooks.to_ebook_route(se, de), lambda: ebooks.to_ebook(src, dst, opts)
+    if se in PANDOC_ONLY_EXT:
+        if de == "pdf":
+            label = "pandoc + typst" if tools.TYPST else "pandoc + Chrome headless"
+            return label, lambda: documents.pandoc_pdf(src, dst, opts)
+        if de in documents.WRITERS:
+            return "pandoc", lambda: documents.pandoc_convert(src, dst, opts)
+
     if se == "pdf":
-        if de in IMAGE_EXT:
+        if de in IMAGE_OUT:
             return "PyMuPDF", lambda: pdf.pdf_to_images(src, dst, opts)
         if de in MD_EXT:
             return "pymupdf4llm", lambda: pdf.pdf_to_md(src, dst, opts)
@@ -52,7 +122,7 @@ def plan(src: Path, dst: Path, opts):
     if se in OFFICE_EXT:
         if de == "pdf":
             return "LibreOffice", lambda: office.office_to_pdf(src, dst, opts)
-        if de in IMAGE_EXT:
+        if de in IMAGE_OUT:
             return "LibreOffice + PyMuPDF", lambda: _via_temp(
                 src, dst, opts, "pdf", office.office_to_pdf, pdf.pdf_to_images)
         if de in MD_EXT:
@@ -75,6 +145,8 @@ def plan(src: Path, dst: Path, opts):
         if de in ("docx", "rtf", "odt"):
             label = "pandoc" if tools.PANDOC else "python-markdown + textutil"
             return label, lambda: text.md_to_office(src, dst, opts)
+        if de == "txt":
+            return "pandoc", lambda: documents.pandoc_convert(src, dst, opts)
 
     if se in HTML_EXT:
         if de == "pdf":
@@ -93,8 +165,15 @@ def plan(src: Path, dst: Path, opts):
     if se in AUDIO_EXT and de in AUDIO_EXT:
         label = "ffmpeg" if tools.FFMPEG else "afconvert"
         return label, lambda: media.audio_to_audio(src, dst, opts)
-    if se in VIDEO_EXT and (de in VIDEO_EXT | AUDIO_EXT or de == "gif"):
+    if se in VIDEO_EXT and (de in VIDEO_OUT | AUDIO_EXT or de == "gif"):
         return "ffmpeg", lambda: media.video_convert(src, dst, opts)
+    if se in SUB_EXT and de in SUB_EXT:
+        return "ffmpeg", lambda: subtitles.sub_convert(src, dst, opts)
+    if se in VIDEO_SUB_SRC and de in SUB_EXT:
+        return "ffmpeg", lambda: subtitles.video_to_sub(src, dst, opts)
+
+    if se in MODEL_EXT and de in MODEL_OUT:
+        return "Blender", lambda: models.model_convert(src, dst, opts)
 
     raise ConvError(f".{se} → .{de} is not supported "
                     "('uniconverter formats' lists every route)")
@@ -129,9 +208,9 @@ def possible_targets(se):
     """All target extensions convert_one offers for this source extension."""
     t = set()
     if se in IMAGE_EXT:
-        t |= (IMAGE_EXT - {se, "heif"}) | {"pdf"}
+        t |= (images.image_out_formats() - {se}) | {"pdf"}
         if se == "gif" and tools.FFMPEG:
-            t |= {"mp4", "webm", "mov"}
+            t |= {"mp4", "webm", "mov", "avi"} & media.video_out_formats()
     if se == "pdf":
         t |= {"png", "jpg", "webp", "tiff", "md", "txt", "html"}
         if importlib.util.find_spec("pdf2docx"):
@@ -142,12 +221,27 @@ def possible_targets(se):
             t |= {"md", "txt", "html", "docx", "odt", "rtf"} - {se}
     if se in MD_EXT:
         t |= {"pdf", "html", "docx", "rtf", "odt"}
+        if tools.PANDOC:
+            t |= {"txt"}
     if se in HTML_EXT:
         t |= {"pdf", "md", "docx", "rtf", "txt", "odt"}
     if se == "txt":
         t |= {"pdf", "docx", "rtf", "html"}
+    if se in PANDOC_ONLY_EXT and tools.PANDOC:
+        t |= {"md", "html", "docx", "odt", "rtf", "txt", "epub"}
+        if tools.TYPST or tools.CHROME:
+            t |= {"pdf"}
+    t |= ebooks.doc_ebook_targets(se)
+    if se in EBOOK_EXT:
+        t |= ebooks.ebook_targets(se)
     if se in AUDIO_EXT:
-        t |= (AUDIO_EXT if tools.FFMPEG else set(AFCONVERT_MAP)) - {se, "aif"}
+        t |= media.audio_out_formats() - {se}
     if se in VIDEO_EXT and tools.FFMPEG:
-        t |= (VIDEO_EXT - {se, "m4v"}) | {"gif", "mp3", "m4a", "wav"}
-    return sorted(t - {"jpeg", "tif", "htm", "aif"})  # hide alias extensions
+        t |= (media.video_out_formats() - {se}) | {"gif"} | media.audio_out_formats()
+    if se in SUB_EXT and tools.FFMPEG:
+        t |= SUB_EXT - {se}
+    if se in VIDEO_SUB_SRC and tools.FFMPEG and tools.FFPROBE:
+        t |= SUB_EXT                          # pull out the subtitle track
+    if se in MODEL_EXT and tools.BLENDER:
+        t |= MODEL_OUT - {se}
+    return sorted(t - HIDDEN_ALIASES)       # hide alias extensions

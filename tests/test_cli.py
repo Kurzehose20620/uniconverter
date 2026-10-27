@@ -24,7 +24,24 @@ def test_doctor(capsys):
 
 def test_formats(capsys):
     run("formats")
-    assert "Supported conversions" in capsys.readouterr().out
+    out = capsys.readouterr().out
+    assert "Supported conversions" in out
+    for family in ("E-books", "Subtitles", "3D", "Xvid-compatible"):
+        assert family in out
+
+
+def test_doctor_lists_the_new_engines(capsys):
+    run("doctor")
+    out = capsys.readouterr().out
+    for name in ("calibre", "ghostscript", "jpeg-xl", "ffprobe", "Blender"):
+        assert name in out
+
+
+def test_dry_run_shows_the_real_file_for_pseudo_targets(tmp_path, capsys):
+    src = tmp_path / "song.wav"
+    src.write_bytes(b"RIFF")
+    assert run(str(src), str(tmp_path / "song.alac"), "-n") == 0
+    assert "song.m4a" in capsys.readouterr().out
 
 
 def test_version(capsys):

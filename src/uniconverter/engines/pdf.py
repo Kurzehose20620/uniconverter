@@ -7,14 +7,17 @@ output (Tesseract is built into PyMuPDF; only the language data is needed).
 import contextlib
 import io
 import locale
+import logging
 import re
 import subprocess
+import sys
 from pathlib import Path
 
+from .. import sizing
 from ..errors import ConvError
 from ..formats import ext_of
 from . import tools
-from .images import img_to_img
+from .images import img_to_img, quality_for
 from .tools import need, pip_hint
 
 OCR_DPI = 300
@@ -127,12 +130,15 @@ def pdf_to_images(src: Path, dst: Path, opts):
     fitz = tools.load_fitz()
     need(fitz, "PyMuPDF", pip_hint("pymupdf"))
     doc = fitz.open(str(src))
-    zoom = opts.dpi / 72.0
-    mat = fitz.Matrix(zoom, zoom)
     de = ext_of(dst)
     written = []
+    limit = sizing.box(opts)
     for i, page in enumerate(doc):
-        pix = page.get_pixmap(matrix=mat)
+        zoom = opts.dpi / 72.0
+        if limit:   # --width/--height/--max: lower the resolution so the page fits
+            w, h = sizing.fit((page.rect.width * zoom, page.rect.height * zoom), limit)
+            zoom *= min(w / (page.rect.width * zoom), h / (page.rect.height * zoom))
+        pix = page.get_pixmap(matrix=fitz.Matrix(zoom, zoom))
         if len(doc) == 1:
             out = dst
         else:
@@ -140,7 +146,7 @@ def pdf_to_images(src: Path, dst: Path, opts):
             if out.exists() and not getattr(opts, "force", False):
                 raise ConvError(f"{out.name} already exists (--force to overwrite)")
         if de in ("jpg", "jpeg"):
-            pix.save(str(out), jpg_quality=opts.quality)
+            pix.save(str(out), jpg_quality=quality_for(de, opts))
         elif de == "png":
             pix.save(str(out))
         else:
@@ -175,11 +181,25 @@ def pdf_to_txt(src: Path, dst: Path, opts):
 
 
 def pdf_to_docx(src: Path, dst: Path, opts):
-    try:
-        from pdf2docx import Converter
-    except ImportError:
-        raise ConvError("pdf2docx is missing (optional, ~100 MB) – "
-                        f"install with: {pip_hint('pdf2docx')}")
-    cv = Converter(str(src))
-    cv.convert(str(dst))
-    cv.close()
+    fitz = tools.load_fitz()
+    if fitz is not None:
+        # pdf2docx imports the deprecated name "fitz": hand it PyMuPDF directly
+        sys.modules.setdefault("fitz", fitz)
+    # pdf2docx logs every page and prints progress – not useful for users
+    with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+        try:
+            from pdf2docx import Converter
+        except ImportError:
+            raise ConvError("pdf2docx is missing (optional, ~100 MB) – "
+                            f"install with: {pip_hint('pdf2docx')}")
+        logging.disable(logging.INFO)
+        try:
+            cv = Converter(str(src))
+            cv.convert(str(dst))
+            cv.close()
+        except Exception as e:
+            raise ConvError(f"pdf2docx: {e}")
+        finally:
+            logging.disable(logging.NOTSET)
+    if not dst.exists() or dst.stat().st_size == 0:
+        raise ConvError("pdf2docx produced no .docx")

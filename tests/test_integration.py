@@ -4,6 +4,7 @@ The first group needs only the Python dependencies (Pillow, PyMuPDF, python-mark
 Routes that need an external program are skipped when it is missing.
 """
 
+import importlib.util
 import shutil
 import subprocess
 import wave
@@ -202,3 +203,11 @@ def test_video_to_gif_via_ffmpeg(tmp_path, opts):
     out = convert(src, tmp_path / "clip.gif", opts)
     assert out.read_bytes()[:6] in (b"GIF87a", b"GIF89a")
 
+
+@pytest.mark.skipif(importlib.util.find_spec("pdf2docx") is None, reason="no pdf2docx")
+def test_pdf_to_docx(fixtures, tmp_path, opts, capsys):
+    out = convert(fixtures / "mini.pdf", tmp_path / "mini.docx", opts)
+    with zipfile.ZipFile(out) as z:
+        assert "HELLO WORLD" in z.read("word/document.xml").decode()
+    captured = capsys.readouterr()
+    assert captured.out == "" and captured.err == ""      # pdf2docx's chatter is muted

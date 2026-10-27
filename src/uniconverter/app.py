@@ -48,16 +48,44 @@ OUTDIRS = {
 }
 
 LABELS = {
+    # images
     "jpg": "JPG · image", "jpeg": "JPEG · image", "png": "PNG · image",
     "webp": "WebP · image", "heic": "HEIC · image", "tiff": "TIFF · image",
     "tif": "TIFF · image", "bmp": "BMP · image", "gif": "GIF", "avif": "AVIF · image",
-    "ico": "ICO · icon", "pdf": "PDF", "md": "Markdown", "txt": "Text",
-    "html": "HTML", "docx": "DOCX · Word", "doc": "DOC · Word",
-    "odt": "ODT · OpenDocument", "rtf": "RTF", "mp3": "MP3 · audio",
-    "m4a": "M4A · audio", "wav": "WAV · audio", "aiff": "AIFF · audio",
-    "caf": "CAF · audio", "flac": "FLAC · audio", "ogg": "OGG · audio",
+    "ico": "ICO · icon", "icns": "ICNS · macOS icon", "tga": "TGA · Targa",
+    "ppm": "PPM · Netpbm", "pgm": "PGM · Netpbm greyscale", "pbm": "PBM · Netpbm b/w",
+    "pcx": "PCX · Paintbrush", "jp2": "JPEG 2000", "qoi": "QOI · image",
+    "dds": "DDS · texture", "sgi": "SGI · image", "exr": "EXR · OpenEXR",
+    "hdr": "HDR · Radiance", "psd": "PSD · Photoshop", "jxl": "JPEG XL",
+    "dpx": "DPX · film scan", "xpm": "XPM · X11 image",
+    # documents and e-books
+    "pdf": "PDF", "md": "Markdown", "txt": "Text", "html": "HTML",
+    "docx": "DOCX · Word", "doc": "DOC · Word", "odt": "ODT · OpenDocument", "rtf": "RTF",
+    "epub": "EPUB · e-book", "mobi": "MOBI · Kindle (old)", "azw3": "AZW3 · Kindle",
+    "fb2": "FB2 · FictionBook", "lit": "LIT · MS Reader", "lrf": "LRF · Sony Reader",
+    # audio
+    "mp3": "MP3 · audio", "m4a": "M4A · audio", "wav": "WAV · audio", "aiff": "AIFF · audio",
+    "caf": "CAF · audio", "flac": "FLAC · audio", "ogg": "OGG · audio", "aac": "AAC · audio",
+    "opus": "Opus · audio", "wma": "WMA · audio (Windows)", "alac": "ALAC · lossless (.m4a)",
+    "m4b": "M4B · audiobook", "ac3": "AC3 · Dolby Digital", "mp2": "MP2 · audio",
+    "au": "AU · audio (Unix/Java)", "mka": "MKA · Matroska audio (FLAC)",
+    "wv": "WV · WavPack", "amr": "AMR · phone voice recording",
+    # video
     "mp4": "MP4 · video", "mov": "MOV · video", "mkv": "MKV · video",
-    "webm": "WebM · video", "avi": "AVI · video",
+    "webm": "WebM · video", "avi": "AVI · video (Xvid, older players)",
+    "m4v": "M4V · video (Apple)", "divx": "DivX · video (older players)",
+    "wmv": "WMV · video (Windows)", "asf": "ASF · video (Windows)",
+    "flv": "FLV · Flash video", "mpg": "MPG · MPEG-2 video", "vob": "VOB · DVD video (PAL)",
+    "ts": "TS · transport stream", "m2ts": "M2TS · Blu-ray/camcorder",
+    "3gp": "3GP · old phone video", "3gp-h263": "3GP · very old phone (H.263 + AMR)",
+    "ogv": "OGV · Ogg video", "dv": "DV · camcorder (PAL)", "rm": "RM · RealMedia",
+    # subtitles
+    "srt": "SRT · subtitles", "vtt": "VTT · subtitles (web)",
+    "ass": "ASS · subtitles", "ssa": "SSA · subtitles",
+    # 3D models
+    "obj": "OBJ · 3D model", "glb": "GLB · 3D model", "gltf": "glTF · 3D model",
+    "fbx": "FBX · 3D model", "stl": "STL · 3D print", "ply": "PLY · 3D scan",
+    "usdz": "USDZ · 3D (Apple AR)", "usdc": "USDC · 3D (USD)",
 }
 
 
