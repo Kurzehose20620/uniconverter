@@ -127,7 +127,8 @@ def test_plan_labels_follow_installed_tools(monkeypatch, opts):
     monkeypatch.setattr(tools, "PANDOC", "/usr/bin/pandoc")
     monkeypatch.setattr(tools, "TYPST", "/usr/bin/typst")
     assert router.plan(Path("a.md"), Path("a.pdf"), opts())[0] == "pandoc + typst"
-    assert router.plan(Path("a.odt"), Path("a.md"), opts())[0] == "LibreOffice + pandoc"
+    assert router.plan(Path("a.odt"), Path("a.md"), opts())[0] == "pandoc"
+    assert router.plan(Path("a.doc"), Path("a.md"), opts())[0] == "LibreOffice + pandoc"
 
 
 def test_engine_detection_is_lazy_and_overridable(monkeypatch):

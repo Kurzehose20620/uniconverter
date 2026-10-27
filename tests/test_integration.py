@@ -7,8 +7,10 @@ Routes that need an external program are skipped when it is missing.
 import shutil
 import subprocess
 import wave
+import zipfile
 
 import pytest
+from conftest import needs_pandoc, needs_typst
 
 from uniconverter import router
 from uniconverter.engines import tools
@@ -93,20 +95,58 @@ def test_scanned_pdf_is_ocred(fixtures, tmp_path, opts):
 
 
 @pytest.mark.skipif(not tools.CHROME, reason="no Chrome/Chromium for headless printing")
-def test_md_to_pdf_via_chrome(fixtures, tmp_path, opts):
+def test_md_to_pdf_via_chrome(fixtures, tmp_path, opts, monkeypatch):
+    monkeypatch.setattr(tools, "TYPST", None)          # force the Chrome route
     out = convert(fixtures / "note.md", tmp_path / "note.pdf", opts)
     assert pdf_pages(out) == 1
 
 
 @pytest.mark.skipif(not tools.CHROME, reason="no Chrome/Chromium for headless printing")
-def test_md_to_pdf_does_not_fetch_remote_content(tmp_path, opts):
+def test_md_to_pdf_does_not_fetch_remote_content(tmp_path, opts, monkeypatch):
     """Remote images/scripts in a document are not loaded: Chrome runs with DNS disabled."""
+    monkeypatch.setattr(tools, "TYPST", None)
     src = tmp_path / "remote.md"
     src.write_text("# Offline\n\n![remote](https://example.com/does-not-load.png)\n"
                    "<script src=\"https://example.com/x.js\"></script>\n\nStill printed.\n")
     out = convert(src, tmp_path / "remote.pdf", opts)
     text = "".join(page.get_text() for page in tools.load_fitz().open(str(out)))
     assert "Still printed" in text
+
+
+REMOTE_MD = """# Remote
+
+![remote picture]({url}/image.png)
+
+```{{=typst}}
+#image("{url}/typst.png")
+```
+
+Still printed.
+"""
+
+
+@needs_typst
+def test_md_to_pdf_via_typst_fetches_nothing(tmp_path, opts, web_server):
+    """pandoc's own PDF pipeline ignores --sandbox; the two-step Typst route does not fetch."""
+    url, hits = web_server
+    src = tmp_path / "remote.md"
+    src.write_text(REMOTE_MD.format(url=url), encoding="utf-8")
+    out = convert(src, tmp_path / "remote.pdf", opts)
+    assert "Still printed" in tools.load_fitz().open(str(out))[0].get_text()
+    assert hits == []
+
+
+@needs_pandoc
+def test_md_to_docx_embeds_local_images(tmp_path, opts):
+    from PIL import Image
+    Image.new("RGB", (40, 30), (200, 0, 0)).save(tmp_path / "red dot.png")
+    src = tmp_path / "pic.md"
+    src.write_text("# Pictures\n\n![a red dot](red%20dot.png)\n", encoding="utf-8")
+    docx = convert(src, tmp_path / "pic.docx", opts)
+    with zipfile.ZipFile(docx) as z:
+        assert any(n.startswith("word/media/") for n in z.namelist())
+    convert(docx, tmp_path / "back.md", opts)
+    assert list((tmp_path / "back_media").rglob("*.png"))
 
 
 @pytest.mark.skipif(not shutil.which("textutil"), reason="textutil is macOS only")
@@ -161,3 +201,4 @@ def test_video_to_gif_via_ffmpeg(tmp_path, opts):
                    check=True)
     out = convert(src, tmp_path / "clip.gif", opts)
     assert out.read_bytes()[:6] in (b"GIF87a", b"GIF89a")
+

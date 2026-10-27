@@ -56,9 +56,12 @@ def plan(src: Path, dst: Path, opts):
             return "LibreOffice + PyMuPDF", lambda: _via_temp(
                 src, dst, opts, "pdf", office.office_to_pdf, pdf.pdf_to_images)
         if de in MD_EXT:
-            label = "pandoc" if tools.PANDOC else "mammoth"
-            if se != "docx":
-                label = "LibreOffice + " + label
+            if tools.PANDOC and se in ("docx", "odt", "rtf"):
+                label = "pandoc"
+            else:
+                label = "pandoc" if tools.PANDOC else "mammoth"
+                if se != "docx":
+                    label = "LibreOffice + " + label
             return label, lambda: office.docx_to_md(src, dst, opts)
         if de in ("txt", "html", "htm", "rtf", "docx", "doc", "odt") and se in TEXTUTIL_SOURCES:
             return "textutil", lambda: office.textutil_convert(src, dst, opts)

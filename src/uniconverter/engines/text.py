@@ -8,8 +8,9 @@ from pathlib import Path
 
 from ..errors import ConvError
 from . import tools
+from .documents import pandoc_convert, typst_pdf
 from .office import textutil_convert
-from .tools import need, pip_hint, run
+from .tools import need, pip_hint
 
 HTML_TEMPLATE = """<!DOCTYPE html>
 <html><head><meta charset="utf-8">
@@ -110,12 +111,15 @@ def chrome_html_to_pdf(html_file: Path, dst: Path):
         raise ConvError("Chrome did not produce a PDF")
 
 
-# pandoc runs with --sandbox (pandoc ≥ 2.15): readers and writers may only read the
-# files named on the command line, so remote images in a document are not fetched.
 def md_to_pdf(src: Path, dst: Path, opts):
+    """pandoc + typst when installed (falls back to Chrome if typesetting fails)."""
     if tools.PANDOC and tools.TYPST:
-        run([tools.PANDOC, "--sandbox", str(src), "-o", str(dst), "--pdf-engine=typst"])
-        return
+        try:
+            return typst_pdf(src, dst, opts)
+        except ConvError as e:
+            if not tools.CHROME:
+                raise
+            print(f"  ({e} – printing with Chrome instead)")
     with tempfile.TemporaryDirectory() as td:
         tmp_html = Path(td) / (src.stem + ".html")
         tmp_html.write_text(md_to_html_str(src), encoding="utf-8")
@@ -124,8 +128,7 @@ def md_to_pdf(src: Path, dst: Path, opts):
 
 def md_to_office(src: Path, dst: Path, opts):
     if tools.PANDOC:
-        run([tools.PANDOC, "--sandbox", str(src), "-o", str(dst)])
-        return
+        return pandoc_convert(src, dst, opts)
     with tempfile.TemporaryDirectory() as td:
         tmp_html = Path(td) / (src.stem + ".html")
         tmp_html.write_text(md_to_html_str(src), encoding="utf-8")

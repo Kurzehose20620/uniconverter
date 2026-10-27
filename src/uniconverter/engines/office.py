@@ -1,4 +1,4 @@
-"""Office documents: LibreOffice headless, textutil (macOS), pandoc/mammoth for DOCX → Markdown."""
+"""Office documents: LibreOffice headless, textutil (macOS), pandoc/mammoth → Markdown."""
 
 import shutil
 import tempfile
@@ -7,6 +7,7 @@ from pathlib import Path
 from ..errors import ConvError
 from ..formats import ext_of
 from . import tools
+from .documents import pandoc_convert
 from .tools import need, pip_hint, run
 
 
@@ -38,14 +39,12 @@ def office_to_docx(src: Path, tmpdir: str):
 
 
 def docx_to_md(src: Path, dst: Path, opts):
+    if tools.PANDOC and ext_of(src) in ("docx", "odt", "rtf"):
+        return pandoc_convert(src, dst, opts)       # pandoc reads these directly
     if ext_of(src) != "docx":
         need(tools.SOFFICE, "LibreOffice", "brew install --cask libreoffice")
         with tempfile.TemporaryDirectory() as td:
             return docx_to_md(office_to_docx(src, td), dst, opts)
-    if tools.PANDOC:
-        run([tools.PANDOC, "--sandbox", str(src), "-t", "gfm", "-o", str(dst),
-             "--extract-media", str(dst.parent / f"{dst.stem}_media")])
-        return
     try:
         import mammoth
     except ImportError:
