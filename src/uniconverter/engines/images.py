@@ -40,7 +40,7 @@ def img_to_img(src: Path, dst: Path, opts):
         run(cmd + [str(src), "--out", str(dst)])
         return
     need(tools.MAGICK, f"ImageMagick (for .{de})", "brew install imagemagick")
-    run([tools.MAGICK, str(src), "-quality", str(opts.quality), str(dst)])
+    run([tools.MAGICK, str(src), "-quality", str(opts.quality), str(dst)], env=tools.magick_env())
 
 
 def _img_for_fitz(src: Path, tmpdir: str):
@@ -71,4 +71,4 @@ def imgs_to_pdf(sources, dst: Path, opts):
         run(["sips", "-s", "format", "pdf", str(sources[0]), "--out", str(dst)])
         return
     need(tools.MAGICK, "ImageMagick or PyMuPDF", "brew install imagemagick")
-    run([tools.MAGICK] + [str(s) for s in sources] + [str(dst)])
+    run([tools.MAGICK] + [str(s) for s in sources] + [str(dst)], env=tools.magick_env())

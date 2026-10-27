@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- uniconverter: keep ImageMagick local. No URL/HTTP(S)/FTP coders or delegates
+     (an SVG or MVG could otherwise reference remote files), no MSL/MVG scripts,
+     no text/label coders reading arbitrary files, no @file indirection. -->
+<policymap>
+  <policy domain="coder" rights="none" pattern="{URL,HTTP,HTTPS,FTP,MVG,MSL,TEXT,LABEL,EPHEMERAL}"/>
+  <policy domain="delegate" rights="none" pattern="{http,https,ftp}"/>
+  <policy domain="path" rights="none" pattern="@*"/>
+</policymap>
